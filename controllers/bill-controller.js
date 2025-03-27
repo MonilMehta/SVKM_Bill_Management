@@ -9,11 +9,13 @@ import VendorMaster from "../models/vendor-master-model.js";
 const getFinancialYearPrefix = (date) => {
   const d = date || new Date();
   let currentYear = d.getFullYear().toString().substr(-2);
+  let nextYear = (parseInt(currentYear) + 1).toString().padStart(2, '0');
 
   if (d.getMonth() >= 3) { 
-    return `${currentYear}${parseInt(currentYear) + 1}`;
+    return `${currentYear}${nextYear}`;
   } else {
-    return `${parseInt(currentYear) - 1}${currentYear}`;
+    let prevYear = (parseInt(currentYear) - 1).toString().padStart(2, '0');
+    return `${prevYear}${currentYear}`;
   }
 };
 

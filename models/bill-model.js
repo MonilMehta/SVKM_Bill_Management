@@ -12,32 +12,14 @@ const billSchema = new mongoose.Schema({
         type: String, 
         required: true,
         enum: [
-          "Proforma Invoice",
-          "Credit note",
-          "Hold/Ret Release",
-          "Direct FI Entry",
-          "Advance/LC/BG",
-          "Petty cash",
-          "Imports",
-          "Materials",
-          "Equipments",
-          "IT related",
-          "IBMS",
-          "Consultancy bill",
-          "Civil Works",
-          "STP Work",
-          "MEP Work",
-          "HVAC Work",
-          "Fire Fighting Work",
-          "Petrol/Diesel",
-          "Petty Cash",
-          "Painting work",
-          "Utility Work",
-          "Site Infra",
-          "Carpentry",
-          "Housekeeping/Security",
-          "Overheads",
-          "Others",
+            "Materials",
+            "Credit note",
+            "Advance/LC/BG",
+            "Others",
+            "Utility Work",
+            "Proforma Invoice",
+            "Hold/Ret Release",
+            "HVAC Work"
         ]
     },
     // Add workflow state information
@@ -232,7 +214,7 @@ const billSchema = new mongoose.Schema({
         accountsIdentification: { type: String },
         paymentAmt: { type: Number },
         remarksAcctsDept: { type: String },
-        status: { type: String, enum: ["paid", "unpaid","Paid","Unpaid"], default: "unpaid" }
+        status: { type: String, enum: ["paid", "unpaid"], default: "unpaid" }
     },
     billDate: { type: Date, required: true },
     vendor: { 
@@ -267,7 +249,6 @@ const billSchema = new mongoose.Schema({
         "SHIRPUR",
         "INDORE",
         "HYDERABAD",
-        "HOSPITAL"
       ],
       required: true,
     },
@@ -279,8 +260,7 @@ const billSchema = new mongoose.Schema({
         "Hold/Ret Release",
         "Direct FI Entry",
         "Advance/LC/BG",
-        "Petty Cash",
-        "Petty cash", 
+        "Petty cash",
         "Imports",
         "Materials",
         "Equipments",
@@ -311,11 +291,13 @@ const billSchema = new mongoose.Schema({
 const getFinancialYearPrefix = (date) => {
   const d = date || new Date();
   let currentYear = d.getFullYear().toString().substr(-2);
+  let nextYear = (parseInt(currentYear) + 1).toString().padStart(2, '0');
 
   if (d.getMonth() >= 3) { 
-    return `${currentYear}${parseInt(currentYear) + 1}`;
+    return `${currentYear}${nextYear}`;
   } else {
-    return `${parseInt(currentYear) - 1}${currentYear}`;
+    let prevYear = (parseInt(currentYear) - 1).toString().padStart(2, '0');
+    return `${prevYear}${currentYear}`;
   }
 };
 
