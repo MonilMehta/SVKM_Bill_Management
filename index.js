@@ -36,9 +36,11 @@ import worflowRoute from "./routes/workflow-routes.js";
 import masterRoute from "./routes/master-routes.js";
 import sentBillsRoute from "./routes/sentBills-routes.js";
 import kpiRoute from "./routes/kpi-route.js";
+import billAttachmentRoute from "./routes/billattachment-route.js";
 
 app.use("/auth", authRoute);
 app.use("/bill", billRoute);
+app.use("/bill", billAttachmentRoute);
 app.use("/users", userRoute);
 app.use("/vendors", vendorRoute);
 app.use("/stats", statRoute);

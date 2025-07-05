@@ -91,6 +91,10 @@ export const authenticate = (req, res, next) => {
 // Role-based authorization middleware
 export const authorize = (...roleArgs) => {
   return (req, res, next) => {
+    console.log('decoding user:', {
+      userRole: req.user?.role,
+      requiredRoles: roleArgs
+    });
     if (!req.user) {
       return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
