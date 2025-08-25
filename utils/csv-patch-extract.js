@@ -58,6 +58,8 @@ const headerToDbField = {
   'Project Description': 'projectDescription',
   'Vendor no': 'vendorNo',
   'Vendor Name': 'vendorName',
+  'Addl 1': 'addl1',
+  'Addl 2': 'addl2',
   'GST Number': 'gstNumber',
   '206AB Compliance': 'compliance206AB',
   'PAN Status': 'panStatus',

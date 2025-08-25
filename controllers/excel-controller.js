@@ -30,6 +30,8 @@ const vendorMasterSchema = new mongoose.Schema({
   }, 
   emailIds: { type: [String], required: true }, // Still an array but we'll only use first value
   phoneNumbers: { type: [String], required: true }, // Still an array but we'll only use first value
+  addl1: {type: String, default:""},
+  addl2: {type: String, default:""}
 }, { collection: 'vendorMasters' });
 
 // Try to load VendorMaster model dynamically

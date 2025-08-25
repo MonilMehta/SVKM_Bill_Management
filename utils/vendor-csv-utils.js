@@ -213,6 +213,8 @@ export async function insertVendorsFromExcel(filePath) {
     'Vendor No': 'vendorNo',
     'Vendor No.': 'vendorNo',
     'Vendor Number': 'vendorNo',
+    "Addl 1": "addl1",
+    "Addl 2": "addl2",
     // Vendor Name variations
     'Vendor Name': 'vendorName',
     'Vendor': 'vendorName',
