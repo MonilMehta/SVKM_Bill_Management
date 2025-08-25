@@ -1381,6 +1381,7 @@ const editPaymentInstructions = async (req, res) => {
       updateObj["accountsDept.f110Identification"] = f110Identification;
     if (paymentDate !== undefined)
       updateObj["accountsDept.paymentDate"] = paymentDate;
+      updateObj["accountsDept.status"] = 'Paid';
     if (paymentAmt !== undefined)
       updateObj["accountsDept.paymentAmt"] = paymentAmt;
     if (status !== undefined) updateObj["accountsDept.status"] = status;
@@ -1540,10 +1541,6 @@ const accountsPaymentReject = async (req, res) => {
       });
     }
 
-    const updateFields = {
-      "accountsDept.paymentDate": null,
-    };
-
     const billFound = await Bill.findById(billId);
     if (!billFound) {
       return res.status(404).json({
@@ -1551,7 +1548,12 @@ const accountsPaymentReject = async (req, res) => {
         message: "Bill not found",
       });
     }
-
+    
+    const updateFields = {
+      "accountsDept.paymentDate": null,
+      "accountsDept.status": "Unpaid"
+    };
+    
     const bill = await Bill.findByIdAndUpdate(
       billId,
       { $set: updateFields },

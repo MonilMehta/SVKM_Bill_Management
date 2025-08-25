@@ -139,14 +139,17 @@ const teamFieldRestrictions = {
     "copDetails.amount"
   ],
   "Site Team": [
-    "migoDetails.number",
+    "migoDetails.no",
     "migoDetails.date",
-    "migoDetails.amount"
+    "migoDetails.amount",
+    "migoDetails.doneBy"
   ],
   "PIMO & MIGO/SES Team": [
-    "sesDetails.number",
+    "sesDetails.no",
     "sesDetails.amount",
-    "sesDetails.date"
+    "sesDetails.date",
+    "sesDetails.doneBy",
+    "pimoMumbai.dateReturnedFromDirector"
   ],
   "Accounts Team": [
     "accountsDept.f110Identification",
@@ -167,15 +170,18 @@ const specialFieldsMap = {
   'COP Amt': 'copDetails.amount',
   
   // Site Team fields
-  'MIGO no': 'migoDetails.number',
+  'MIGO no': 'migoDetails.no',
   'MIGO Dt': 'migoDetails.date',
   'MIGO Amt': 'migoDetails.amount',
-  
+  'MIGO done by': 'migoDetails.doneBy',
+
   // PIMO & MIGO/SES Team fields
-  'SES no': 'sesDetails.number',
+  'SES no': 'sesDetails.no',
   'SES Amt': 'sesDetails.amount',
   'SES Dt': 'sesDetails.date',
-  
+  'SES done by': 'sesDetails.doneBy',
+  'Dt ret-PIMO aft approval': 'pimoMumbai.dateReturnedFromDirector',
+
   // Accounts Team fields
   'F110 Identification': 'accountsDept.f110Identification',
   'Dt of Payment': 'accountsDept.paymentDate',
@@ -215,12 +221,15 @@ export async function patchBillsFromExcelFile(filePath, teamName = null) {
   const allAllowedFields = [
     "copDetails.date",
     "copDetails.amount",
-    "migoDetails.number",
+    "migoDetails.no",
     "migoDetails.date",
     "migoDetails.amount",
-    "sesDetails.number",
+    "migoDetails.doneBy",
+    "sesDetails.no",
     "sesDetails.amount",
     "sesDetails.date",
+    "sesDetails.doneBy",
+    "pimoMumbai.dateReturnedFromDirector",
     "accountsDept.f110Identification",
     "accountsDept.paymentDate",
     "accountsDept.hardCopy",
@@ -270,6 +279,13 @@ export async function patchBillsFromExcelFile(filePath, teamName = null) {
     const bill = await Bill.findOne({ srNo });
     if (!bill) { skipped++; console.log(`[PATCH DEBUG] Row ${rowNumber} skipped: bill not found for Sr no ${srNo}`); continue; }
     const updateObj = {};
+    const billData = await Bill.findById(bill._id);
+    updateObj.accountsDept = billData.accountsDept;
+    updateObj.miroDetails = billData.miroDetails;
+    updateObj.migoDetails = billData.migoDetails;
+    updateObj.sesDetails = billData.sesDetails;
+    updateObj.copDetails = billData.copDetails;
+    updateObj.pimoMumbai = billData.pimoMumbai;
     let hasUpdate = false;
 
     // Only process specialFieldsMap, and only for allowed fields
@@ -318,9 +334,14 @@ export async function patchBillsFromExcelFile(filePath, teamName = null) {
       console.log(`[PATCH DEBUG] Field '${header}' (db: ${dbField}) will be updated with value:`, val);
     }
 
+     if (updateObj.accountsDept && updateObj.accountsDept.paymentDate) {
+      updateObj.accountsDept.status = 'Paid';
+      console.log(`[PATCH DEBUG] Auto-setting accountsDept.status to 'Paid' for bill ${srNo} due to paymentDate update`);
+    }
+
     // Only update if at least one allowed field is present (even if others are empty)
     if (hasUpdate) {
-      await Bill.updateOne({ _id: bill._id }, { $set: updateObj });
+      await Bill.findByIdAndUpdate(bill._id, { $set: updateObj });
       updated++;
       console.log(`[PATCHED] Bill srNo ${srNo} updated fields:`, updateObj);
     } else {
