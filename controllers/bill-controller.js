@@ -301,7 +301,18 @@ const createBill = async (req, res) => {
     await bill.save();
     bill.pimoMumbai.markReceived = role === "3" ? true : false;
     await bill.save();
-    res.status(201).json({ success: true, bill });
+    // populate the vendor details , fix billId population during bill return
+    const populatedBill = await Bill.findById(bill._id).populate("region")
+      .populate("currency")
+      .populate("natureOfWork")
+      .populate({
+        path: "vendor",
+        populate: [
+          { path: "PANStatus", model: "PanStatusMaster" },
+          { path: "complianceStatus", model: "ComplianceMaster" },
+        ],
+      });
+    res.status(201).json({ success: true, bill: populatedBill });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
