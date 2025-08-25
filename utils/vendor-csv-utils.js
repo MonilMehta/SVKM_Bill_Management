@@ -524,7 +524,9 @@ export async function updateVendorComplianceFromExcel(filePath) {
     'Phone Numbers': 'phoneNumbers',
     'Mobile': 'phoneNumbers',
     'Mobile No': 'phoneNumbers',
-    'Mobile Number': 'phoneNumbers'
+    'Mobile Number': 'phoneNumbers',
+    'Addl 1': 'addl1',
+    'Addl 2': 'addl2'
   };
   
   // Debug the detected headers
@@ -674,6 +676,13 @@ export async function updateVendorComplianceFromExcel(filePath) {
             }
           }
         }
+      }
+
+      if(rowData['Addl 1'] !== undefined && rowData['Addl 1'] !== null) {
+        updateObj.addl1 = rowData['Addl 1'].toString().trim();
+      }
+      if(rowData['Addl 2'] !== undefined && rowData['Addl 2'] !== null) {
+        updateObj.addl2 = rowData['Addl 2'].toString().trim();
       }
 
       // Update vendor if we have fields to update
