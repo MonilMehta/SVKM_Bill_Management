@@ -1371,27 +1371,28 @@ const editPaymentInstructions = async (req, res) => {
       status,
     } = req.body;
 
-    const updateObj = {};
-    if (paymentInstructions !== undefined)
-      updateObj["accountsDept.paymentInstructions"] = paymentInstructions;
-    if (remarksForPayInstructions !== undefined)
-      updateObj["accountsDept.remarksForPayInstructions"] =
-        remarksForPayInstructions;
-    if (f110Identification !== undefined)
-      updateObj["accountsDept.f110Identification"] = f110Identification;
-    if (paymentDate !== undefined)
-      updateObj["accountsDept.paymentDate"] = paymentDate;
-      updateObj["accountsDept.status"] = 'Paid';
-    if (paymentAmt !== undefined)
-      updateObj["accountsDept.paymentAmt"] = paymentAmt;
-    if (status !== undefined) updateObj["accountsDept.status"] = status;
+    const bill = await Bill.findById(id);
 
-    if (Object.keys(updateObj).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No valid payment instruction fields provided for update",
-      });
+    if (!bill) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Bill not found" });
     }
+
+    if (paymentInstructions !== undefined)
+      bill.accountsDept.paymentInstructions = paymentInstructions
+    if (remarksForPayInstructions !== undefined)
+      bill.accountsDept.remarksForPayInstructions = remarksForPayInstructions
+    if (f110Identification !== undefined)
+      bill.accountsDept.f110Identification = f110Identification;
+    if (paymentDate !== undefined){
+      bill.accountsDept.paymentDate = paymentDate;
+      bill.accountsDept.status = 'Paid';
+    }
+    if (paymentAmt !== undefined)
+      bill.accountsDept.paymentAmt = paymentAmt;
+    if (status !== undefined) 
+      bill.accountsDept.status = status;
 
     // const updatedBill = await Bill.findByIdAndUpdate(
     //   id,
@@ -1399,13 +1400,9 @@ const editPaymentInstructions = async (req, res) => {
     //   { new: true, runValidators: true }
     // );
 
-    const updatedBill = await Bill.findOneAndUpdate(
-      { srNo: id },
-      { $set: updateObj },
-      { new: true, runValidators: true }
-    );
+    await bill.save();
 
-    if (!updatedBill) {
+    if (!bill) {
       return res
         .status(404)
         .json({ success: false, message: "Bill not found" });
@@ -1414,7 +1411,7 @@ const editPaymentInstructions = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Payment instructions updated successfully",
-      bill: updatedBill,
+      bill,
     });
   } catch (error) {
     console.error("Edit payment instructions error:", error);
@@ -1548,22 +1545,20 @@ const accountsPaymentReject = async (req, res) => {
         message: "Bill not found",
       });
     }
-    
-    const updateFields = {
-      "accountsDept.paymentDate": null,
-      "accountsDept.status": "Unpaid"
-    };
-    
-    const bill = await Bill.findByIdAndUpdate(
-      billId,
-      { $set: updateFields },
-      { new: true }
-    );
+
+    if(billFound.accountsDept && billFound.accountsDept.paymentDate){
+      billFound.accountsDept.paymentDate = null;
+    }
+    if(billFound.accountsDept && billFound.accountsDept.status){
+      billFound.accountsDept.status = "Unpaid";
+    }
+
+    await billFound.save();
 
     return res.status(200).json({
       success: true,
       message: "Payment rejected by Accounts Department",
-      bill,
+      bill: billFound,
     });
   } catch (error) {
     console.error("Failed to perform the operation:", error);
