@@ -49,7 +49,7 @@ export const getOutstandingBillsReport = async (req, res) => {
 
     outstandingBills.forEach((bill) => {
       // Use vendor name from populated vendor object
-      const vendorName = bill.vendor?.vendorName || "N/A";
+      const vendorName = bill.vendor?.vendorName || "";
       if (!vendorGroups[vendorName]) {
         vendorGroups[vendorName] = [];
       }
@@ -113,21 +113,21 @@ export const getOutstandingBillsReport = async (req, res) => {
         totalCopAmount += !isNaN(copAmt) ? copAmt : 0;
         vendorGroup.bills.push({
           srNo: bill.srNo,
-          projectDescription: bill.projectDescription || "N/A",
-          region: bill.region || "N/A",
-          vendorNo: bill.vendor?.vendorNo || "N/A",
-          vendorName: bill.vendor?.vendorName || "N/A",
-          taxInvNo: bill.taxInvNo || "N/A",
-          taxInvDate: formatDate(bill.taxInvDate) || "N/A",
+          projectDescription: bill.projectDescription || "",
+          region: bill.region || "",
+          vendorNo: bill.vendor?.vendorNo || "",
+          vendorName: bill.vendor?.vendorName || "",
+          taxInvNo: bill.taxInvNo || "",
+          taxInvDate: formatDate(bill.taxInvDate) || "",
           taxInvAmt: !isNaN(taxInvAmt) ? Number(taxInvAmt.toFixed(2)) : 0,
           copAmt: !isNaN(parseFloat(bill.copDetails?.amount))
             ? Number(parseFloat(bill.copDetails.amount).toFixed(2))
             : 0,
           dateRecdInAcctsDept:
-            formatDate(bill.accountsDept?.dateReceived) || "N/A",
-          paymentInstructions: bill.accountsDept?.paymentInstructions || "N/A",
+            formatDate(bill.accountsDept?.dateReceived) || "",
+          paymentInstructions: bill.accountsDept?.paymentInstructions || "",
           remarksForPaymentInstructions:
-            bill.accountsDept?.remarksForPayInstructions || "N/A",
+            bill.accountsDept?.remarksForPayInstructions || "",
         });
       });
 
@@ -266,12 +266,12 @@ export const getInvoicesReceivedAtSite = async (req, res) => {
       srNo: invoice.srNo,
       region: invoice.region,
       projectDescription: invoice.projectDescription,
-      vendorNo: invoice.vendor?.vendorNo || "N/A",
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorNo: invoice.vendor?.vendorNo || "",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      taxInvRecdAtSite: formatDate(invoice.taxInvRecdAtSite) || "N/A",
+      taxInvRecdAtSite: formatDate(invoice.taxInvRecdAtSite) || "",
       poNo: invoice.poNo,
     }));
 
@@ -361,12 +361,12 @@ export const getInvoicesReceivedAtPIMOMumbai = async (req, res) => {
       srNo: invoice.srNo,
       region: invoice.region,
       projectDescription: invoice.projectDescription,
-      vendorNo: invoice.vendor?.vendorNo || "N/A",
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorNo: invoice.vendor?.vendorNo || "",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      pimoDateReceived: formatDate(invoice.pimoMumbai.dateReceived) || "N/A",
+      pimoDateReceived: formatDate(invoice.pimoMumbai.dateReceived) || "",
       poNo: invoice.poNo,
     }));
     const totalTaxInvAmt = reportData.reduce(
@@ -415,11 +415,11 @@ export const getInvoicesCourierToPIMOMumbai = async (req, res) => {
 
     const filter = {
       taxInvRecdAtSite: { $ne: null, $exists: true },
-      "siteOfficeDispatch.dateGiven": { $ne: null, $exists: true },
+      "pimoMumbai.dateGiven": { $ne: null, $exists: true },
     };
 
     if (startDate && endDate) {
-      filter["siteOfficeDispatch.dateGiven"] = {
+      filter["pimoMumbai.dateGiven"] = {
         $gte: new Date(startDate),
         $lte: endOfDay(endDate),
       };
@@ -434,7 +434,7 @@ export const getInvoicesCourierToPIMOMumbai = async (req, res) => {
 
     // Fetch invoices couriered to Mumbai from database and populate vendor
     const invoicesCourierToMumbai = await Bill.find(filter)
-      .sort({ "siteOfficeDispatch.dateGiven": -1 })
+      .sort({ "pimoMumbai.dateGiven": -1 })
       .populate("vendor")
       .populate("natureOfWork");
 
@@ -457,12 +457,11 @@ export const getInvoicesCourierToPIMOMumbai = async (req, res) => {
 
     reportData = invoicesCourierToMumbai.map((invoice) => ({
       srNo: invoice.srNo,
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      dateDispatchedForPimo:
-        formatDate(invoice.siteOfficeDispatch.dateGiven) || "N/A",
+      dateDispatchedForPimo: formatDate(invoice.pimoMumbai.dateGiven) || "",
     }));
     const totalTaxInvAmt = reportData.reduce(
       (sum, item) => sum + (Number(item.taxInvAmt) || 0),
@@ -547,11 +546,11 @@ export const getInvoicesGivenToAcctsDept = async (req, res) => {
 
     reportData = invoicesGivenToAcctsDept.map((invoice) => ({
       srNo: invoice.srNo,
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice?.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice?.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      dateGivenToAccounts: formatDate(invoice.accountsDept?.dateGiven) || "N/A",
+      dateGivenToAccounts: formatDate(invoice.accountsDept?.dateGiven) || "",
     }));
     const totalTaxInvAmt = reportData.reduce(
       (sum, item) => sum + (Number(item.taxInvAmt) || 0),
@@ -638,16 +637,15 @@ export const getInvoicesPaid = async (req, res) => {
 
     reportData = invoices.map((invoice) => ({
       srNo: invoice.srNo,
-      dateReceivedAtAccts:
-        formatDate(invoice.accountsDept?.dateReceived) || "N/A",
-      dateOfPayment: formatDate(invoice.accountsDept?.paymentDate) || "N/A",
-      vendorNo: invoice.vendor?.vendorNo || "N/A",
-      vendorName: invoice.vendor?.vendorName || "N/A",
-      taxInvNo: invoice?.taxInvNo || "N/A",
-      taxInvDate: formatDate(invoice?.taxInvDate) || "N/A",
+      dateReceivedAtAccts: formatDate(invoice.accountsDept?.dateReceived) || "",
+      dateOfPayment: formatDate(invoice.accountsDept?.paymentDate) || "",
+      vendorNo: invoice.vendor?.vendorNo || "",
+      vendorName: invoice.vendor?.vendorName || "",
+      taxInvNo: invoice?.taxInvNo || "",
+      taxInvDate: formatDate(invoice?.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      copAmount: invoice.copDetails?.amount || "N/A",
-      payentAmt: invoice.amount || "N/A",
+      copAmount: invoice.copDetails?.amount || "",
+      payentAmt: invoice.amount || "",
     }));
     // Prepare the final response
     const totalTaxInvAmt = reportData.reduce(
@@ -746,13 +744,13 @@ export const getInvoicesGivenToQsSite = async (req, res) => {
       srNo: invoice.srNo,
       region: invoice.region,
       projectDescription: invoice.projectDescription,
-      vendorNo: invoice.vendor?.vendorNo || "N/A",
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorNo: invoice.vendor?.vendorNo || "",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
       dateGivenToQSMeasurement:
-        formatDate(invoice.qsMeasurementCheck?.dateGiven) || "N/A",
+        formatDate(invoice.qsMeasurementCheck?.dateGiven) || "",
       poNo: invoice.poNo,
     }));
     const totalTaxInvAmt = reportData.reduce(
@@ -837,12 +835,12 @@ export const getInvoicesAtQSforProvCOP = async (req, res) => {
       srNo: invoice.srNo,
       region: invoice.region,
       projectDescription: invoice.projectDescription,
-      vendorNo: invoice.vendor?.vendorNo || "N/A",
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorNo: invoice.vendor?.vendorNo || "",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      dateGiventoQsCOP: formatDate(invoice.qsCOP?.dateGiven) || "N/A",
+      dateGiventoQsCOP: formatDate(invoice.qsCOP?.dateGiven) || "",
       poNo: invoice.poNo,
     }));
     const totalTaxInvAmt = reportData.reduce(
@@ -926,12 +924,12 @@ export const getInvoicesAtQSMumbai = async (req, res) => {
       srNo: invoice.srNo,
       region: invoice.region,
       projectDescription: invoice.projectDescription,
-      vendorNo: invoice.vendor?.vendorNo || "N/A",
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorNo: invoice.vendor?.vendorNo || "",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      dateGivenToQsMumbai: formatDate(invoice.qsMumbai?.dateGiven) || "N/A",
+      dateGivenToQsMumbai: formatDate(invoice.qsMumbai?.dateGiven) || "",
       poNo: invoice.poNo,
     }));
     const totalTaxInvAmt = reportData.reduce(
@@ -1018,12 +1016,12 @@ export const getInvoicesReturnedByQsSite = async (req, res) => {
 
     reportData = invoicesReturnedFromQsMeasurement.map((invoice) => ({
       srNo: invoice.srNo,
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
       dateReturnedFromQsMeasurement:
-        formatDate(invoice.siteOfficeDispatch.dateGiven) || "N/A",
+        formatDate(invoice.siteOfficeDispatch.dateGiven) || "",
     }));
 
     const totalTaxInvAmt = reportData.reduce(
@@ -1111,12 +1109,11 @@ export const getInvoicesReturnedByQsCOP = async (req, res) => {
 
     reportData = invoicesReturnedFromQsCOP.map((invoice) => ({
       srNo: invoice.srNo,
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
-      dateDispatchedForPimo:
-        formatDate(invoice.copDetails?.dateReturned) || "N/A",
+      dateDispatchedForPimo: formatDate(invoice.copDetails?.dateReturned) || "",
     }));
     const totalTaxInvAmt = reportData.reduce(
       (sum, item) => sum + (Number(item.taxInvAmt) || 0),
@@ -1203,12 +1200,12 @@ export const getInvoicesReturnedByQSMumbai = async (req, res) => {
 
     reportData = invoicesReturnedFromQsMumbai.map((invoice) => ({
       srNo: invoice.srNo,
-      vendorName: invoice.vendor?.vendorName || "N/A",
+      vendorName: invoice.vendor?.vendorName || "",
       taxInvNo: invoice.taxInvNo,
-      taxInvDate: formatDate(invoice.taxInvDate) || "N/A",
+      taxInvDate: formatDate(invoice.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
       dateReturnedByQS:
-        formatDate(invoice.pimoMumbai?.dateReturnedFromQs) || "N/A",
+        formatDate(invoice.pimoMumbai?.dateReturnedFromQs) || "",
     }));
 
     const totalTaxInvAmt = reportData.reduce(
@@ -1287,7 +1284,7 @@ export const getPendingBillsReport = async (req, res) => {
 
     pendingBills.forEach((bill) => {
       // Use vendor name from populated vendor object
-      const vendorName = bill.vendor?.vendorName || "N/A";
+      const vendorName = bill.vendor?.vendorName || "";
       if (!vendorGroups[vendorName]) {
         vendorGroups[vendorName] = [];
       }
@@ -1333,18 +1330,18 @@ export const getPendingBillsReport = async (req, res) => {
         totalInvoiceAmount += !isNaN(invoiceAmount) ? invoiceAmount : 0;
 
         reportData.push({
-          srNo: bill.srNo || "N/A",
-          projectDescription: bill.projectDescription || "N/A",
-          vendorName: bill.vendor?.vendorName || "N/A",
-          invoiceNo: bill.taxInvNo || "N/A",
-          invoiceDate: formatDate(bill.taxInvDate) || "N/A",
+          srNo: bill.srNo || "",
+          projectDescription: bill.projectDescription || "",
+          vendorName: bill.vendor?.vendorName || "",
+          invoiceNo: bill.taxInvNo || "",
+          invoiceDate: formatDate(bill.taxInvDate) || "",
           invoiceAmount: !isNaN(invoiceAmount)
             ? Number(invoiceAmount.toFixed(2))
             : 0,
-          dateInvoiceReceivedAtSite: formatDate(bill.taxInvRecdAtSite) || "N/A",
+          dateInvoiceReceivedAtSite: formatDate(bill.taxInvRecdAtSite) || "",
           dateBillReceivedAtPimoRrrm:
-            formatDate(bill.pimoMumbai?.dateReceived) || "N/A",
-          poNo: bill.poNo || "N/A",
+            formatDate(bill.pimoMumbai?.dateReceived) || "",
+          poNo: bill.poNo || "",
         });
       });
 
@@ -1601,11 +1598,11 @@ export const getBillJourney = async (req, res) => {
       }
 
       return {
-        srNo: bill.srNo || "N/A",
-        region: bill.region || "N/A",
-        projectDescription: bill.projectDescription || "N/A",
-        vendorName: bill.vendor?.vendorName || "N/A",
-        invoiceDate: formatDate(bill.taxInvDate) || "N/A",
+        srNo: bill.srNo || "",
+        region: bill.region || "",
+        projectDescription: bill.projectDescription || "",
+        vendorName: bill.vendor?.vendorName || "",
+        invoiceDate: formatDate(bill.taxInvDate) || "",
         invoiceAmount: !isNaN(invoiceAmount)
           ? Number(invoiceAmount.toFixed(2))
           : 0,
