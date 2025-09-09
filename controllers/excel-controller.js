@@ -689,6 +689,26 @@ const importVendors = async (req, res) => {
     
     fs.writeFileSync(tempFilePath, uploadedFile.buffer);
     
+    // Validating required columns
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(tempFilePath);
+    const worksheet = workbook.getWorksheet(1);
+    const headerRow = worksheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell) => {
+      headers.push((cell.value || '').toString().trim());
+    });
+
+    const requiredHeaders = ['Vendor No', 'Vendor Name', 'PAN Status', '206AB Compliance'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      return res.status(400).json({
+        success: false,
+        message: `Missing required columns: ${missingHeaders.join(', ')}`
+      });
+    }
+
     const importResult = await insertVendorsFromExcel(tempFilePath);
     
     if (fs.existsSync(tempFilePath)) {
@@ -737,7 +757,36 @@ const updateVendorCompliance = async (req, res) => {
     const tempFilePath = path.join(tempDir, uploadedFile.originalname);
     console.log(`Processing vendor compliance update file: ${uploadedFile.originalname}`);
     
+    // Check file extension
+    const fileExtension = path.extname(uploadedFile.originalname).toLowerCase();
+    if (fileExtension !== '.xlsx' && fileExtension !== '.xls') {
+      return res.status(400).json({
+        success: false,
+        message: "Only Excel files (.xlsx, .xls) are allowed for vendor import"
+      });
+    }
+
     fs.writeFileSync(tempFilePath, uploadedFile.buffer);
+    
+    // Validate required columns
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(tempFilePath);
+    const worksheet = workbook.getWorksheet(1);
+    const headerRow = worksheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell) => {
+      headers.push((cell.value || '').toString().trim());
+    });
+
+    const requiredHeaders = ['Vendor No', 'Vendor Name', 'PAN Status', '206AB Compliance'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      return res.status(400).json({
+        success: false,
+        message: `Missing required columns: ${missingHeaders.join(', ')}`
+      });
+    }
     
     const updateResult = await updateVendorComplianceFromExcel(tempFilePath);
     
