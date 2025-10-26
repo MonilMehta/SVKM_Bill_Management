@@ -137,6 +137,25 @@ export const parseDate = (dateString) => {
     // Convert to string if not already
     const strDate = String(dateString).trim();
     
+    // Handle dot-separated format (DD.MM.YYYY) - convert to dash format
+    const dotRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const dotMatch = strDate.match(dotRegex);
+    
+    if (dotMatch) {
+      const [_, day, month, year] = dotMatch;
+      const dayInt = parseInt(day, 10);
+      const monthInt = parseInt(month, 10) - 1;
+      const yearInt = parseInt(year, 10);
+      
+      const date = new Date(yearInt, monthInt, dayInt, 12, 0, 0);
+      if (!isNaN(date.getTime()) && 
+          date.getDate() === dayInt && 
+          date.getMonth() === monthInt && 
+          date.getFullYear() === yearInt) {
+        return date;
+      }
+    }
+    
     // Handle Excel date format (DD-MM-YYYY)
     const ddmmyyyyRegex = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
     const ddmmyyyyMatch = strDate.match(ddmmyyyyRegex);
@@ -696,28 +715,57 @@ export const validateRequiredFields = async (data) => {
   }
 
   // Handle natureOfWork reference
- try {
+  try {
     if (data.natureOfWork && mongoose.Types.ObjectId.isValid(data.natureOfWork)) {
       // Already a valid ObjectId, do nothing
     } else if (data.typeOfInv || data.natureOfWork) {
-      const workType = data.natureOfWork || data.typeOfInv;
-      // Try to find the nature of work in the master (case-insensitive)
-      const workDoc = await NatureOfWorkMaster.findOne({ 
-        natureOfWork: { $regex: new RegExp(workType, 'i') } 
+      const workType = (data.natureOfWork || data.typeOfInv).trim();
+      const workTypeLower = workType.toLowerCase();
+      
+      // Try exact match first (case-insensitive)
+      let workDoc = await NatureOfWorkMaster.findOne({ 
+        natureOfWork: { $regex: `^${workType}$`, $options: 'i' } 
       });
+      
+      // Try partial match (contains)
+      if (!workDoc) {
+        workDoc = await NatureOfWorkMaster.findOne({ 
+          natureOfWork: { $regex: workType, $options: 'i' } 
+        });
+      }
+      
+      // Try reverse partial match (workType contains nature name)
+      if (!workDoc) {
+        const allNatures = await NatureOfWorkMaster.find();
+        workDoc = allNatures.find(n => 
+          workTypeLower.includes(n.natureOfWork.toLowerCase())
+        );
+      }
+      
+      // Try fuzzy matching with word splitting
+      if (!workDoc) {
+        const typeWords = workTypeLower.split(/\s+/).filter(w => w.length > 3);
+        if (typeWords.length > 0) {
+          const allNatures = await NatureOfWorkMaster.find();
+          workDoc = allNatures.find(n => {
+            const natureName = n.natureOfWork.toLowerCase();
+            return typeWords.some(word => natureName.includes(word));
+          });
+        }
+      }
       
       if (workDoc) {
         data.natureOfWork = workDoc._id;
       } else {
-        // If not found, try to find "Others" as default
+        // If not found, default to "Others"
         const defaultWork = await NatureOfWorkMaster.findOne({
-          natureOfWork: { $regex: /others/i }
+          natureOfWork: { $regex: /^others$/i }
         }) || await NatureOfWorkMaster.findOne();
         
         data.natureOfWork = defaultWork ? defaultWork._id : new mongoose.Types.ObjectId();
       }
     } else {
-      // If no type specified, find any as default
+      // If no type specified, find "Others" as default
       const defaultWork = await NatureOfWorkMaster.findOne({
         natureOfWork: { $regex: /others/i }
       }) || await NatureOfWorkMaster.findOne();

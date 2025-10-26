@@ -309,22 +309,9 @@ export async function insertVendorsFromExcel(filePath) {
             // }
           }
 
-          // // Handle email and phone - take only the first value
-          // if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
-          //   if (typeof value === 'string') {
-          //     // Get first value if multiple are provided (split by commas, semicolons, or spaces)
-          //     const firstValue = value.split(/[,;\\s]+/)[0]?.trim();
-          //     value = firstValue ? [firstValue] : [''];
-          //   } else {
-          //     value = [value.toString()];
-          //   }
-          //   console.log(`Using single ${dbField} value: ${value[0]}`);
-          // }
-
-          // Handle email and phone - take all values if multiple are provided (split by commas, semicolons, or spaces)
+          // Handle email and phone - convert to array format
           if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
             if (typeof value === 'string') {
-              // Split by comma, semicolon, whitespace, or newline
               value = value.split(/[,;\s\n\r]+/).map(v => v.trim()).filter(Boolean);
             } else if (Array.isArray(value)) {
               value = value.map(v => v.toString().trim()).filter(Boolean);
@@ -333,7 +320,6 @@ export async function insertVendorsFromExcel(filePath) {
             } else {
               value = [];
             }
-            console.log(`Using ${dbField} values: ${value}`);
           }
 
           // Map reference fields
@@ -428,10 +414,13 @@ export async function insertVendorsFromExcel(filePath) {
       const existingVendor = await VendorMaster.findOne({ vendorNo: vendorData.vendorNo });
 
       if (existingVendor) {
-        // Update existing vendor
-        await VendorMaster.updateOne({ _id: existingVendor._id }, { $set: vendorData });
-        updated++;
-        console.log(`[VENDOR UPDATE] Updated vendor ${vendorData.vendorNo}`);
+        // Skip existing vendor - do not update during import
+        skipped++;
+        errors.push({
+          row: rowNumber,
+          error: `Vendor ${vendorData.vendorNo} already exists. Use Mass Update to modify existing vendors.`
+        });
+        console.log(`[VENDOR SKIP] Vendor ${vendorData.vendorNo} already exists, skipping`);
       } else {
         // Insert new vendor
         await VendorMaster.create(vendorData);
@@ -454,13 +443,24 @@ export async function insertVendorsFromExcel(filePath) {
   const validComplianceValues = await getValidReferenceValues('complianceStatus');
   const validPanStatusValues = await getValidReferenceValues('PANStatus');
 
-
+  // Create summary message
+  let summaryMessage = '';
+  if (inserted > 0 && skipped === 0) {
+    summaryMessage = `Successfully imported ${inserted} new vendor(s)`;
+  } else if (inserted > 0 && skipped > 0) {
+    summaryMessage = `Imported ${inserted} new vendor(s), skipped ${skipped} existing vendor(s)`;
+  } else if (inserted === 0 && skipped > 0) {
+    summaryMessage = `No new vendors imported. ${skipped} vendor(s) already exist. Use Mass Update to modify existing vendors.`;
+  } else {
+    summaryMessage = 'No vendors were imported';
+  }
 
   return {
     inserted,
     updated,
     skipped,
     errors,
+    summaryMessage,
     referenceOptions: {
       complianceStatus: validComplianceValues.map(v => v.value),
       panStatus: validPanStatusValues.map(v => v.value)
@@ -548,7 +548,9 @@ export async function updateVendorComplianceFromExcel(filePath) {
     'Mobile No': 'phoneNumbers',
     'Mobile Number': 'phoneNumbers',
     'Addl 1': 'addl1',
-    'Addl 2': 'addl2'
+    'Addl1': 'addl1',
+    'Addl 2': 'addl2',
+    'Addl2': 'addl2',
   };
 
   // Debug the detected headers
@@ -666,58 +668,22 @@ export async function updateVendorComplianceFromExcel(filePath) {
         }
       }
 
-      // Process Email - take only first value
-      // const emailHeaders = ['Email', 'Email ID', 'Email IDs'];
-      // for (const header of emailHeaders) {
-      //   if (rowData[header] !== undefined && rowData[header] !== null) {
-      //     const emailValue = rowData[header].toString().trim();
-      //     if (emailValue) {
-      //       // Get only the first email
-      //       const firstEmail = emailValue.split(/[,;\\s]+/)[0]?.trim();
-      //       if (firstEmail) {
-      //         updateObj.emailIds = [firstEmail];
-      //         console.log(`Using email value: ${firstEmail}`);
-      //         break;
-      //       }
-      //     }
-      //   }
-      // }
-
-      // Process Phone - take only first value
-      // const phoneHeaders = ['Phone', 'Phone No', 'Phone Numbers'];
-      // for (const header of phoneHeaders) {
-      //   if (rowData[header] !== undefined && rowData[header] !== null) {
-      //     const phoneValue = rowData[header].toString().trim();
-      //     if (phoneValue) {
-      //       // Get only the first phone number
-      //       const firstPhone = phoneValue.split(/[,;\\s]+/)[0]?.trim();
-      //       if (firstPhone) {
-      //         updateObj.phoneNumbers = [firstPhone];
-      //         console.log(`Using phone value: ${firstPhone}`);
-      //         break;
-      //       }
-      //     }
-      //   }
-      // }
-        
-      // Process Email - take all values (not just the first)
+      // Process Email
       const emailHeaders = ['Email', 'Email ID', 'Email IDs', 'EmailId', 'Email Address'];
       for (const header of emailHeaders) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const emailValue = rowData[header].toString().trim();
           if (emailValue) {
-            // Split by comma, semicolon, whitespace, or newline
             const emails = emailValue.split(/[,;\s\n\r]+/).map(e => e.trim()).filter(Boolean);
             if (emails.length > 0) {
               updateObj.emailIds = emails;
-              console.log(`Using email values: ${emails}`);
               break;
             }
           }
         }
       }
 
-      // Process Phone No - take all values (not just the first)
+      // Process Phone No
       const phoneHeaders = [
         'Phone', 'Phone No', 'Phone No.', 'Phone Number', 'Phone Numbers', 'Mobile', 'Mobile No', 'Mobile Number'
       ];
@@ -725,22 +691,36 @@ export async function updateVendorComplianceFromExcel(filePath) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const phoneValue = rowData[header].toString().trim();
           if (phoneValue) {
-            // Split by comma, semicolon, whitespace, or newline
             const phones = phoneValue.split(/[,;\s\n\r]+/).map(p => p.trim()).filter(Boolean);
             if (phones.length > 0) {
               updateObj.phoneNumbers = phones;
-              console.log(`Using phone values: ${phones}`);
               break;
             }
           }
         }
       }
 
-      if (rowData['Addl 1'] !== undefined && rowData['Addl 1'] !== null) {
-        updateObj.addl1 = rowData['Addl 1'].toString().trim();
+      // Process Addl 1 - support multiple header variations
+      const addl1Headers = ['Addl 1', 'Addl1', 'Additional 1', 'Additional1'];
+      for (const header of addl1Headers) {
+        if (rowData[header] !== undefined && rowData[header] !== null) {
+          const addl1Value = rowData[header].toString().trim();
+          if (addl1Value) {
+            updateObj.addl1 = addl1Value;
+            break;
+          }
+        }
       }
-      if (rowData['Addl 2'] !== undefined && rowData['Addl 2'] !== null) {
-        updateObj.addl2 = rowData['Addl 2'].toString().trim();
+
+      // Process Addl 2 - support multiple header variations
+      const addl2Headers = ['Addl 2', 'Addl2', 'Additional 2', 'Additional2'];
+      for (const header of addl2Headers) {
+        if (rowData[header] !== undefined && rowData[header] !== null) {
+          const addl2Value = rowData[header].toString().trim();
+          if (addl2Value) {
+            updateObj.addl2 = addl2Value;            break;
+          }
+        }
       }
 
       // Update vendor if we have fields to update
@@ -767,10 +747,23 @@ export async function updateVendorComplianceFromExcel(filePath) {
   const validComplianceValues = await getValidReferenceValues('complianceStatus');
   const validPanStatusValues = await getValidReferenceValues('PANStatus');
 
+  // Create a detailed summary message
+  let summaryMessage = '';
+  if (updated > 0 && errors.length === 0) {
+    summaryMessage = `Successfully updated ${updated} vendor(s)`;
+  } else if (updated > 0 && errors.length > 0) {
+    summaryMessage = `Updated ${updated} vendor(s), but ${errors.length} error(s) occurred`;
+  } else if (updated === 0 && errors.length > 0) {
+    summaryMessage = `No vendors were updated. ${errors.length} error(s) occurred`;
+  } else {
+    summaryMessage = 'No vendors were updated';
+  }
+
   return {
     updated,
     skipped,
     errors,
+    summaryMessage,
     referenceOptions: {
       complianceStatus: validComplianceValues.map(v => v.value),
       panStatus: validPanStatusValues.map(v => v.value)

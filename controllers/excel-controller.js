@@ -825,19 +825,43 @@ const updateVendorCompliance = async (req, res) => {
       fs.unlinkSync(tempFilePath);
     }
 
-    // If any rows were skipped or errors occurred, return error
-    if ((updateResult.skipped && updateResult.skipped > 0) || (updateResult.errors && updateResult.errors.length > 0)) {
+    // If any errors occurred, return with error details
+    if (updateResult.errors && updateResult.errors.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Vendor compliance update completed with errors or skipped rows',
-        details: updateResult
+        message: updateResult.summaryMessage || 'Vendor compliance update completed with errors',
+        details: {
+          updated: updateResult.updated,
+          skipped: updateResult.skipped,
+          errors: updateResult.errors,
+          referenceOptions: updateResult.referenceOptions
+        }
       });
     }
 
+    // If no vendors were updated (but no errors), return warning
+    if (updateResult.updated === 0) {
+      return res.status(400).json({
+        success: false,
+        message: updateResult.summaryMessage || 'No vendors were updated',
+        details: {
+          updated: updateResult.updated,
+          skipped: updateResult.skipped,
+          errors: updateResult.errors,
+          referenceOptions: updateResult.referenceOptions
+        }
+      });
+    }
+
+    // Success - vendors were updated with no errors
     return res.status(200).json({
       success: true,
-      message: 'Vendor compliance update process complete',
-      details: updateResult
+      message: updateResult.summaryMessage || 'Vendor compliance update process complete',
+      details: {
+        updated: updateResult.updated,
+        skipped: updateResult.skipped,
+        referenceOptions: updateResult.referenceOptions
+      }
     });
   } catch (error) {
     console.error('Vendor compliance update error:', error);
