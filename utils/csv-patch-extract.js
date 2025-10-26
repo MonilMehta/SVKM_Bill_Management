@@ -303,12 +303,22 @@ export async function patchBillsFromExcelFile(filePath, teamName = null) {
         continue;
       }
       if (!isFilled(rowData[header])) {
-        // If the field is empty, just skip updating this field (do not skip the row)
-        console.log(`[PATCH DEBUG] Field '${header}' is empty, skipping update for this field.`);
         continue;
       }
       // Get the value and parse it appropriately
       let val = rowData[header];
+      
+      // Handle hardCopy field validation
+      if (dbField === 'accountsDept.hardCopy') {
+        if (val) {
+          const hardCopyValue = String(val).trim().toUpperCase();
+          if (hardCopyValue !== 'YES' && hardCopyValue !== 'NO') {
+            continue;
+          }
+          val = hardCopyValue;
+        }
+      }
+      
       // Handle date fields
       if (dbField.includes('.date') || dbField.includes('Dt')) {
         val = parseDateIfNeeded(dbField, val);

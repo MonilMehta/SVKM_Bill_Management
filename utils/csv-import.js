@@ -273,10 +273,39 @@ export const importBillsFromExcel = async (filePath, validVendorNos = [], patchO
           ) || currencies.find(c => c.currency?.toLowerCase() === "inr") || currencies[0];
           newBillData.currency = currency ? currency._id : new mongoose.Types.ObjectId();
           
-          // Set nature of work
-          const nature = natureOfWork.find(n => 
-            n.natureOfWork?.toLowerCase().includes(newBillData.typeOfInv?.toLowerCase())
-          ) || natureOfWork.find(n => n.natureOfWork?.toLowerCase() === "others") || natureOfWork[0];
+          // Set nature of work with improved matching
+          let nature = null;
+          if (newBillData.typeOfInv) {
+            const typeOfInv = newBillData.typeOfInv.toLowerCase().trim();
+            
+            // Try exact match first
+            nature = natureOfWork.find(n => 
+              n.natureOfWork?.toLowerCase() === typeOfInv
+            );
+            
+            // Try partial match (typeOfInv contains nature or vice versa)
+            if (!nature) {
+              nature = natureOfWork.find(n => {
+                const natureName = n.natureOfWork?.toLowerCase();
+                return natureName?.includes(typeOfInv) || typeOfInv.includes(natureName);
+              });
+            }
+            
+            // Try fuzzy matching for common variations
+            if (!nature) {
+              const typeWords = typeOfInv.split(/\s+/);
+              nature = natureOfWork.find(n => {
+                const natureName = n.natureOfWork?.toLowerCase();
+                return typeWords.some(word => word.length > 3 && natureName?.includes(word));
+              });
+            }
+          }
+          
+          // Default to "Others" if no match found
+          if (!nature) {
+            nature = natureOfWork.find(n => n.natureOfWork?.toLowerCase() === "others") || natureOfWork[0];
+          }
+          
           newBillData.natureOfWork = nature ? nature._id : new mongoose.Types.ObjectId();
           
           // Set optional references

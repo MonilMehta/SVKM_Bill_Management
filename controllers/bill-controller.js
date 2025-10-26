@@ -1573,7 +1573,6 @@ const accountsPaymentReject = async (req, res) => {
 const getFilteredBills = async (req, res) => {
   const { role } = req.query;
   try {
-    console.log("Hii");
     let filter = { region: { $in: req.user.region } };
 
     switch (role) {
@@ -1581,13 +1580,15 @@ const getFilteredBills = async (req, res) => {
         filter = {
           ...filter,
           "pimoMumbai.dateReceived": null,
-          siteStatus: "hold"
+          siteStatus: "hold",
+          currentCount: 1
         };
         break;
       
       case "site_pimo":
         filter = {
           ...filter,
+          currentCount: 3,
           $or: [
             {
               "pimoMumbai.dateGiven": { $ne: null },
@@ -1613,6 +1614,7 @@ const getFilteredBills = async (req, res) => {
       case "director":
         filter = {
           ...filter,
+          currentCount: 4,
           siteStatus: { $in: ["accept", "hold"] },
           "accountsDept.status": "Unpaid"
         };
