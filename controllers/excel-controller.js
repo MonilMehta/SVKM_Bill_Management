@@ -11,42 +11,7 @@ import fs from "fs";
 import os from "os";
 import ExcelJS from "exceljs";
 import Bill from '../models/bill-model.js';
-
-// Define a schema for VendorMaster if not already defined
-const vendorMasterSchema = new mongoose.Schema({
-  vendorNo: { type: String, required: true },
-  vendorName: { type: String, required: true },
-  PAN: { type: String, required: true },
-  GSTNumber: { type: String, required: true },
-  complianceStatus: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ComplianceMaster',
-    required: true
-  },
-  PANStatus: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'PanStatusMaster',
-    required: true
-  },
-  emailIds: { type: [String], required: true }, // Still an array but we'll only use first value
-  phoneNumbers: { type: [String], required: true }, // Still an array but we'll only use first value
-  addl1: { type: String, default: "" },
-  addl2: { type: String, default: "" }
-}, { collection: 'vendorMasters' });
-
-// Try to load VendorMaster model dynamically
-let VendorMaster;
-try {
-  VendorMaster = mongoose.model('VendorMaster');
-} catch (e) {
-  try {
-    // If model doesn't exist, register it
-    VendorMaster = mongoose.model('VendorMaster', vendorMasterSchema);
-    console.log('VendorMaster model registered');
-  } catch (registerError) {
-    console.log('Failed to register VendorMaster model:', registerError);
-  }
-}
+import VendorMaster from '../models/vendor-master-model.js';
 
 // Helper function to check if vendor validation should be skipped
 const shouldSkipVendorValidation = async () => {
@@ -75,7 +40,8 @@ const generateReport = async (req, res) => {
     if (!ids.length) {
       return res.status(400).json({
         success: false,
-        message: "No bill IDs provided"
+        message: "Please select at least one bill to generate a report",
+        toastMessage: "Please select at least one bill"
       });
     }
 
@@ -83,7 +49,8 @@ const generateReport = async (req, res) => {
     if (invalidIds.length) {
       return res.status(400).json({
         success: false,
-        message: "Invalid bill ID format",
+        message: "Some bill IDs are invalid",
+        toastMessage: "Invalid bill IDs selected. Please refresh and try again",
         invalidIds
       });
     }
@@ -120,6 +87,7 @@ const generateReport = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to generate report",
+      toastMessage: "Failed to generate report. Please try again",
       error: error.message
     });
   }
@@ -178,7 +146,8 @@ const importBills = async (req, res) => {
     if (!req.files || !req.files.length) {
       return res.status(400).json({
         success: false,
-        message: "No file uploaded"
+        message: "No file uploaded",
+        toastMessage: "Please select a file to upload"
       });
     }
 
@@ -352,6 +321,7 @@ const importBills = async (req, res) => {
       return res.status(202).json({  // 202 Accepted - partial processing
         success: true,
         message: "Import completed with warnings - some vendors not found in the vendor master",
+        toastMessage: `Import completed but ${uniqueInvalidVendors.length} vendor(s) were skipped`,
         details: {
           inserted: importResult.inserted?.length || 0,
           updated: importResult.updated?.length || 0,
@@ -375,6 +345,7 @@ const importBills = async (req, res) => {
       return res.status(202).json({
         success: true,
         message: "Some bills already exist in the database. Please use the PATCH endpoint instead.",
+        toastMessage: `${importResult.alreadyExistingBills.length} bill(s) already exist. Use update option instead`,
         details: {
           inserted: importResult.inserted?.length || 0,
           updated: importResult.updated?.length || 0,
@@ -397,6 +368,7 @@ const importBills = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: importResult.message || `Successfully processed ${importResult.totalProcessed || 0} bills`,
+      toastMessage: `Successfully imported ${(importResult.inserted || 0) + (importResult.updated || 0)} bill(s)`,
       details: {
         inserted: importResult.inserted || 0,
         updated: importResult.updated || 0,
@@ -432,6 +404,7 @@ const importBills = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to import bills",
+      toastMessage: "Failed to import bills. Please check the file format and try again",
       error: error.message
     });
   }
@@ -460,7 +433,8 @@ const patchBillsFromExcel = async (req, res) => {
     if (!req.files || !req.files.length) {
       return res.status(400).json({
         success: false,
-        message: "No file uploaded"
+        message: "No file uploaded",
+        toastMessage: "Please select a file to upload"
       });
     }
 
@@ -511,6 +485,7 @@ const patchBillsFromExcel = async (req, res) => {
         message: teamName
         ? `Patch process complete with errors or skipped rows for ${teamName}`
         : 'Patch process complete with errors or skipped rows (unrestricted)',
+        toastMessage: `Update failed. ${patchResult.skipped || 0} row(s) skipped due to errors`,
         details: patchResult
       });
     }
@@ -520,6 +495,7 @@ const patchBillsFromExcel = async (req, res) => {
       message: teamName
         ? `Patch process complete for ${teamName}`
         : 'Patch process complete (unrestricted)',
+      toastMessage: `Successfully updated ${patchResult.updated} bill(s)`,
       details: patchResult
     });
   } catch (error) {
@@ -527,149 +503,11 @@ const patchBillsFromExcel = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to patch bills",
+      toastMessage: "Failed to update bills. Please check the file format and try again",
       error: error.message
     });
   }
 };
-
-// // Add a new endpoint to fix srNo formatting for existing bills
-// const fixBillSerialNumbers = async (req, res) => {
-//   try {
-//     const { bills } = req.body;
-
-//     if (!bills || !Array.isArray(bills)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid input. Expected array of bill IDs"
-//       });
-//     }
-
-//     const results = [];
-//     let successCount = 0;
-
-//     for (const item of bills) {
-//       try {
-//         const bill = await Bill.findById(item._id);
-
-//         if (!bill) {
-//           results.push({
-//             _id: item._id,
-//             status: 'failed',
-//             message: 'Bill not found'
-//           });
-//           continue;
-//         }
-
-//         // Store original srNo as excelSrNo if not already set
-//         if (!bill.excelSrNo) {
-//           bill.excelSrNo = bill.srNo;
-//         }
-
-//         // Format srNo with 2425 prefix - ensure srNo is a string first
-//         const srNoStr = String(bill.srNo || '');
-//         const numericPart = srNoStr.replace(/\D/g, '');
-//         bill.srNo = `2425${numericPart.padStart(5, '0')}`;
-
-//         // Set import mode to ensure proper handling
-//         bill._importMode = true;
-
-//         await bill.save();
-
-//         results.push({
-//           _id: bill._id,
-//           status: 'success',
-//           oldSrNo: bill.excelSrNo,
-//           newSrNo: bill.srNo
-//         });
-
-//         successCount++;
-//       } catch (err) {
-//         console.error(`Error processing bill ${item._id}:`, err);
-//         results.push({
-//           _id: item._id,
-//           status: 'error',
-//           message: err.message
-//         });
-//       }
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `Successfully updated ${successCount} out of ${bills.length} bills`,
-//       results
-//     });
-//   } catch (error) {
-//     console.error('Fix serial numbers error:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to fix serial numbers",
-//       error: error.message
-//     });
-//   }
-// };
-
-// // Add a bulk update function to fix all existing bills
-// const bulkFixSerialNumbers = async (req, res) => {
-//   try {
-//     // Find all bills that don't have the correct format
-//     const billsToFix = await Bill.find({
-//       srNo: { $not: /^2425/ } // Find all bills whose srNo doesn't start with 2425
-//     }).limit(req.query.limit ? parseInt(req.query.limit) : 1000);
-
-//     console.log(`Found ${billsToFix.length} bills with incorrect srNo format`);
-
-//     let updated = 0;
-//     let failed = 0;
-//     const results = [];
-
-//     for (const bill of billsToFix) {
-//       try {
-//         // Store original srNo if not already stored
-//         if (!bill.excelSrNo) {
-//           bill.excelSrNo = bill.srNo;
-//         }
-
-//         // Extract numeric part - ensure srNo is a string first
-//         const srNoStr = String(bill.srNo || '');
-//         const numericPart = srNoStr.replace(/\D/g, '');
-//         const originalSrNo = bill.srNo;
-
-//         // Format with 2425 prefix
-//         bill.srNo = `2425${numericPart.padStart(5, '0')}`;
-
-//         // Set import mode to ensure proper handling
-//         bill._importMode = true;
-
-//         await bill.save();
-//         updated++;
-
-//         results.push({
-//           _id: bill._id,
-//           oldSrNo: originalSrNo,
-//           newSrNo: bill.srNo,
-//           excelSrNo: bill.excelSrNo
-//         });
-//       } catch (error) {
-//         console.error(`Error fixing bill ${bill._id}:`, error);
-//         failed++;
-//       }
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `Fixed ${updated} bill serial numbers (${failed} failed)`,
-//       totalProcessed: billsToFix.length,
-//       results: results
-//     });
-//   } catch (error) {
-//     console.error('Bulk fix error:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: 'Error fixing serial numbers',
-//       error: error.message
-//     });
-//   }
-// };
 
 // Function to import all vendor data from Excel/CSV
 const importVendors = async (req, res) => {
@@ -689,7 +527,8 @@ const importVendors = async (req, res) => {
     if (!req.files || !req.files.length) {
       return res.status(400).json({
         success: false,
-        message: "No file uploaded"
+        message: "No file uploaded",
+        toastMessage: "Please select a file to upload"
       });
     }
 
@@ -703,7 +542,8 @@ const importVendors = async (req, res) => {
     if (fileExtension !== '.xlsx' && fileExtension !== '.xls') {
       return res.status(400).json({
         success: false,
-        message: "Only Excel files (.xlsx, .xls) are allowed for vendor import"
+        message: "Only Excel files (.xlsx, .xls) are allowed for vendor import",
+        toastMessage: "Please upload an Excel file (.xlsx or .xls)"
       });
     }
 
@@ -725,7 +565,10 @@ const importVendors = async (req, res) => {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       return res.status(400).json({
         success: false,
-        message: `Missing required columns: ${missingHeaders.join(', ')}`
+        message: `Missing required columns: ${missingHeaders.join(', ')}`,
+        toastMessage: `Excel file is missing required columns: ${missingHeaders.join(', ')}`,
+        missingHeaders,
+        foundHeaders: headers
       });
     }
     
@@ -742,6 +585,7 @@ const importVendors = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Vendor import completed with errors or skipped rows',
+        toastMessage: `Vendor import completed with ${importResult.errors?.length || 0} error(s)`,
         details: importResult
       });
     }
@@ -749,6 +593,7 @@ const importVendors = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Vendor import process complete',
+      toastMessage: `Successfully imported ${importResult.inserted} vendor(s)`,
       details: importResult
     });
   } catch (error) {
@@ -756,6 +601,7 @@ const importVendors = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: 'Error importing vendors',
+      toastMessage: 'Failed to import vendors. Please check the file format and try again',
       error: error.message
     });
   }
@@ -779,7 +625,8 @@ const updateVendorCompliance = async (req, res) => {
     if (!req.files || !req.files.length) {
       return res.status(400).json({
         success: false,
-        message: "No file uploaded"
+        message: "No file uploaded",
+        toastMessage: "Please select a file to upload"
       });
     }
 
@@ -793,7 +640,8 @@ const updateVendorCompliance = async (req, res) => {
     if (fileExtension !== '.xlsx' && fileExtension !== '.xls') {
       return res.status(400).json({
         success: false,
-        message: "Only Excel files (.xlsx, .xls) are allowed for vendor import"
+        message: "Only Excel files (.xlsx, .xls) are allowed for vendor import",
+        toastMessage: "Please upload an Excel file (.xlsx or .xls)"
       });
     }
 
@@ -815,7 +663,10 @@ const updateVendorCompliance = async (req, res) => {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       return res.status(400).json({
         success: false,
-        message: `Missing required columns: ${missingHeaders.join(', ')}`
+        message: `Missing required columns: ${missingHeaders.join(', ')}`,
+        toastMessage: `Excel file is missing required columns: ${missingHeaders.join(', ')}`,
+        missingHeaders,
+        foundHeaders: headers
       });
     }
 
@@ -830,6 +681,7 @@ const updateVendorCompliance = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: updateResult.summaryMessage || 'Vendor compliance update completed with errors',
+        toastMessage: `Vendor compliance update completed with ${updateResult.errors.length} error(s)`,
         details: {
           updated: updateResult.updated,
           skipped: updateResult.skipped,
@@ -844,6 +696,7 @@ const updateVendorCompliance = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: updateResult.summaryMessage || 'No vendors were updated',
+        toastMessage: 'No vendors were updated. Please check vendor numbers',
         details: {
           updated: updateResult.updated,
           skipped: updateResult.skipped,
@@ -857,6 +710,7 @@ const updateVendorCompliance = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: updateResult.summaryMessage || 'Vendor compliance update process complete',
+      toastMessage: `Successfully updated ${updateResult.updated} vendor(s)`,
       details: {
         updated: updateResult.updated,
         skipped: updateResult.skipped,
@@ -868,6 +722,7 @@ const updateVendorCompliance = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: 'Error updating vendor compliance',
+      toastMessage: 'Failed to update vendor compliance. Please check the file format and try again',
       error: error.message
     });
   }
