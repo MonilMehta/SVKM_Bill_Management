@@ -10,6 +10,7 @@ import CurrencyMaster from '../models/currency-master-model.js';
 import PanStatusMaster from '../models/pan-status-master-model.js';
 import ComplianceMaster from '../models/compliance-master-model.js';
 import RegionMaster from '../models/region-master-model.js';
+import { headerMapping } from './headerMap.js'; // Import centralized header mapping
 
 /**
  * Reads an Excel file, skips the first row (report header), and logs each data row.
@@ -50,29 +51,8 @@ export async function extractPatchRowsFromExcel(filePath) {
   }
 }
 
-// Map Excel headers to DB fields
-const headerToDbField = {
-  'Sr no': 'srNo',
-  'Type of inv': 'natureOfWork', // Will be mapped to ObjectId
-  'Region': 'region',
-  'Project Description': 'projectDescription',
-  'Vendor no': 'vendorNo',
-  'Vendor Name': 'vendorName',
-  'Addl 1': 'addl1',
-  'Addl 2': 'addl2',
-  'GST Number': 'gstNumber',
-  '206AB Compliance': 'compliance206AB',
-  'PAN Status': 'panStatus',
-  'PO no': 'poNo',
-  'PO Amt': 'poAmt',
-  'Tax Inv no': 'taxInvNo',
-  'Currency': 'currency',
-  'Tax Inv Amt': 'taxInvAmt',
-  'Remarks related to Inv': 'remarksBySiteTeam',
-  'Status': 'status',
-  'Tax Inv Dt': 'taxInvDate',
-  'If PO created??': 'poCreated',
-};
+// Use centralized header mapping from headerMap.js
+const headerToDbField = headerMapping;
 
 function isFilled(val) {
   return val !== undefined && val !== null && val !== '';

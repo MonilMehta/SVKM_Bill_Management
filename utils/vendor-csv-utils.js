@@ -4,6 +4,7 @@ import fs from 'fs';
 import VendorMaster from '../models/vendor-master-model.js';
 import ComplianceMaster from '../models/compliance-master-model.js';
 import PanStatusMaster from '../models/pan-status-master-model.js';
+import { vendorHeaderMapping } from './headerMap.js'; // Import centralized vendor header mapping
 
 /**
  * Maps reference values for compliance and PAN status
@@ -206,54 +207,8 @@ export async function insertVendorsFromExcel(filePath) {
     console.log(`Using row ${headerRowIdx} as headers row:`, headers);
   }
 
-  // Map Excel headers to DB fields
-  const headerToDbField = {
-    // Vendor Number variations
-    'Vendor no': 'vendorNo',
-    'Vendor No': 'vendorNo',
-    'Vendor No.': 'vendorNo',
-    'Vendor Number': 'vendorNo',
-    "Addl 1": "addl1",
-    "Addl 2": "addl2",
-    // Vendor Name variations
-    'Vendor Name': 'vendorName',
-    'Vendor': 'vendorName',
-    'Name': 'vendorName',
-    'Supplier Name': 'vendorName',
-    // PAN variations
-    'PAN': 'PAN',
-    'PAN No': 'PAN',
-    'PAN No.': 'PAN',
-    'PAN Number': 'PAN',
-    // GST variations
-    'GST Number': 'GSTNumber',
-    'GST No': 'GSTNumber',
-    'GST No.': 'GSTNumber',
-    'GSTIN': 'GSTNumber',
-    // Compliance variations
-    '206AB Compliance': 'complianceStatus',
-    'Compliance Status': 'complianceStatus',
-    '206AB': 'complianceStatus',
-    'Compliance': 'complianceStatus',
-    // PAN Status variations
-    'PAN Status': 'PANStatus',
-    'Status': 'PANStatus',
-    // Email variations
-    'Email': 'emailIds',
-    'Email ID': 'emailIds',
-    'Email IDs': 'emailIds',
-    'EmailId': 'emailIds',
-    'Email Address': 'emailIds',
-    // Phone variations
-    'Phone': 'phoneNumbers',
-    'Phone No': 'phoneNumbers',
-    'Phone No.': 'phoneNumbers',
-    'Phone Number': 'phoneNumbers',
-    'Phone Numbers': 'phoneNumbers',
-    'Mobile': 'phoneNumbers',
-    'Mobile No': 'phoneNumbers',
-    'Mobile Number': 'phoneNumbers'
-  };
+  // Use centralized vendor header mapping
+  const headerToDbField = vendorHeaderMapping;
 
   // Debug the detected headers
   console.log('Detected headers in Excel:', headers);
@@ -502,56 +457,8 @@ export async function updateVendorComplianceFromExcel(filePath) {
     console.log(`Using row ${headerRowIdx} as headers row:`, headers);
   }
 
-  // Map Excel headers to DB fields (only for required fields)
-  const headerToDbField = {
-    // Vendor Number variations
-    'Vendor no': 'vendorNo',
-    'Vendor No': 'vendorNo',
-    'Vendor No.': 'vendorNo',
-    'Vendor Number': 'vendorNo',
-    // Vendor Name variations
-    'Vendor Name': 'vendorName',
-    'Vendor': 'vendorName',
-    'Name': 'vendorName',
-    'Supplier Name': 'vendorName',
-    // PAN variations
-    'PAN': 'PAN',
-    'PAN No': 'PAN',
-    'PAN No.': 'PAN',
-    'PAN Number': 'PAN',
-    // GST variations
-    'GST Number': 'GSTNumber',
-    'GST No': 'GSTNumber',
-    'GST No.': 'GSTNumber',
-    'GSTIN': 'GSTNumber',
-    // Compliance variations
-    '206AB Compliance': 'complianceStatus',
-    'Compliance Status': 'complianceStatus',
-    '206AB': 'complianceStatus',
-    'Compliance': 'complianceStatus',
-    // PAN Status variations
-    'PAN Status': 'PANStatus',
-    'Status': 'PANStatus',
-    // Email variations
-    'Email': 'emailIds',
-    'Email ID': 'emailIds',
-    'Email IDs': 'emailIds',
-    'EmailId': 'emailIds',
-    'Email Address': 'emailIds',
-    // Phone variations
-    'Phone': 'phoneNumbers',
-    'Phone No': 'phoneNumbers',
-    'Phone No.': 'phoneNumbers',
-    'Phone Number': 'phoneNumbers',
-    'Phone Numbers': 'phoneNumbers',
-    'Mobile': 'phoneNumbers',
-    'Mobile No': 'phoneNumbers',
-    'Mobile Number': 'phoneNumbers',
-    'Addl 1': 'addl1',
-    'Addl1': 'addl1',
-    'Addl 2': 'addl2',
-    'Addl2': 'addl2',
-  };
+  // Use centralized vendor header mapping
+  const headerToDbField = vendorHeaderMapping;
 
   // Debug the detected headers
   console.log('Detected headers in Excel:', headers);
