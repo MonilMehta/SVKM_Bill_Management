@@ -2,10 +2,7 @@
 
 
 import ExcelJS from 'exceljs';
-import path from 'path';
-import fs from 'fs';
 import Bill from '../models/bill-model.js';
-import NatureOfWorkMaster from '../models/nature-of-work-master-model.js';
 import CurrencyMaster from '../models/currency-master-model.js';
 import PanStatusMaster from '../models/pan-status-master-model.js';
 import ComplianceMaster from '../models/compliance-master-model.js';
@@ -105,29 +102,83 @@ function parseNumberIfNeeded(field, value) {
  * @param {*} value - Value to map
  * @returns {Promise<string|undefined>} ObjectId as string or undefined
  */
+const referenceLookupCache = {
+  currency: null,
+  panStatus: null,
+  compliance206AB: null,
+  region: null
+};
+
+function buildLookupMap(collection, extractKey, extractValue) {
+  const map = new Map();
+  collection.forEach(doc => {
+    const key = extractKey(doc);
+    if (!key) return;
+    map.set(key.toString().trim().toLowerCase(), extractValue(doc));
+  });
+  return map;
+}
+
+async function getReferenceLookup(field) {
+  if (referenceLookupCache[field]) {
+    return referenceLookupCache[field];
+  }
+
+  switch (field) {
+    case 'currency': {
+      const docs = await CurrencyMaster.find().lean();
+      referenceLookupCache.currency = buildLookupMap(docs, doc => doc.currency, doc => doc._id.toString());
+      break;
+    }
+    case 'panStatus': {
+      const docs = await PanStatusMaster.find().lean();
+      referenceLookupCache.panStatus = buildLookupMap(docs, doc => doc.panStatus || doc.name, doc => doc._id.toString());
+      break;
+    }
+    case 'compliance206AB': {
+      const docs = await ComplianceMaster.find().lean();
+      referenceLookupCache.compliance206AB = buildLookupMap(docs, doc => doc.compliance206AB, doc => doc._id.toString());
+      break;
+    }
+    case 'region': {
+      const docs = await RegionMaster.find().lean();
+      referenceLookupCache.region = buildLookupMap(docs, doc => doc.name, doc => doc.name);
+      break;
+    }
+    default:
+      referenceLookupCache[field] = new Map();
+  }
+
+  return referenceLookupCache[field] || new Map();
+}
+
 async function mapReferenceIfNeeded(field, value) {
-  if (!value || typeof value !== 'string') return value;
-  if (field === 'currency') {
-    const doc = await CurrencyMaster.findOne({ currency: { $regex: new RegExp(`^${value}$`, 'i') } });
-    if (doc) return doc._id;
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  const stringValue = value.toString().trim();
+  if (!stringValue) {
     return undefined;
   }
-  if (field === 'panStatus') {
-    const doc = await PanStatusMaster.findOne({ panStatus: { $regex: new RegExp(`^${value}$`, 'i') } });
-    if (doc) return doc._id;
+
+  const lookup = await getReferenceLookup(field);
+  if (!lookup.size) {
     return undefined;
   }
-  if (field === 'compliance206AB') {
-    const doc = await ComplianceMaster.findOne({ compliance206AB: { $regex: new RegExp(`^${value}$`, 'i') } });
-    if (doc) return doc._id;
-    return undefined;
+
+  const normalized = stringValue.toLowerCase();
+  if (lookup.has(normalized)) {
+    return lookup.get(normalized);
   }
-  if (field === 'region') {
-    const doc = await RegionMaster.findOne({ name: { $regex: new RegExp(`^${value}$`, 'i') } });
-    if (doc) return doc.name;
-    return undefined;
+
+  for (const [candidate, mappedValue] of lookup.entries()) {
+    if (candidate.includes(normalized) || normalized.includes(candidate)) {
+      return mappedValue;
+    }
   }
-  return value;
+
+  return undefined;
 }
 
 /**
@@ -407,8 +458,8 @@ async function processPatchRow(rowData, rowNumber, allowedFields, updateSummary,
   if (!bill) {
     return { updated: false, reason: 'bill_not_found' };
   }
-  
-  const billData = await Bill.findById(bill._id);
+
+  const billData = bill.toObject();
   const updateObj = initializeUpdateObject(billData);
   let hasUpdate = false;
 
@@ -442,7 +493,7 @@ async function processPatchRow(rowData, rowNumber, allowedFields, updateSummary,
   applyBusinessRules(updateObj);
 
   if (hasUpdate) {
-    await Bill.findByIdAndUpdate(bill._id, { $set: updateObj });
+    await Bill.updateOne({ _id: bill._id }, { $set: updateObj });
     return { updated: true, srNo };
   } else {
     return { updated: false, reason: 'no_updates' };

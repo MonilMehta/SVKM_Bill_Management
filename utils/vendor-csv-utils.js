@@ -258,19 +258,33 @@ function parseArrayField(value) {
  * @param {number} rowNumber - Row number for logging
  * @returns {Promise<ObjectId|null>} Mapped ObjectId or null if not found
  */
-async function mapReferenceField(field, value, rowNumber) {
-  const { id, validValues, bestMatch } = await mapReferenceValue(field, value.toString());
-
-  if (id) {
-    return id;
-  } else {
-    const fieldDisplay = field === 'complianceStatus' ? '206AB Compliance' : 'PAN Status';
-    const validOptionsMsg = validValues.length > 0
-      ? `Valid options are: ${validValues.join(', ')}`
-      : 'No valid options found in master table';
-
-    return null;
+async function mapReferenceField(field, value) {
+  if (value === undefined || value === null) {
+    return undefined;
   }
+
+  const { id } = await mapReferenceValue(field, value.toString());
+  return id;
+}
+
+async function normalizeVendorFieldValue(dbField, value, rowNumber) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (dbField === 'vendorNo') {
+    return parseVendorNumber(value, rowNumber);
+  }
+
+  if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
+    return parseArrayField(value);
+  }
+
+  if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
+    return mapReferenceField(dbField, value);
+  }
+
+  return value;
 }
 
 /**
@@ -282,26 +296,15 @@ async function mapReferenceField(field, value, rowNumber) {
 async function processVendorRowData(rowData, rowNumber) {
   const vendorData = {};
 
-  for (const [header, dbField] of Object.entries(VENDOR_HEADER_MAPPING)) {
-    if (rowData[header] !== undefined && rowData[header] !== null) {
-      let value = rowData[header];
+  for (const [header, dbField] of Object.entries(vendorHeaderMapping)) {
+    if (rowData[header] === undefined || rowData[header] === null) {
+      continue;
+    }
 
-      if (dbField === 'vendorNo') {
-        value = parseVendorNumber(value, rowNumber);
-      }
+    const normalizedValue = await normalizeVendorFieldValue(dbField, rowData[header], rowNumber);
 
-      if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
-        value = parseArrayField(value);
-      }
-
-      if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
-        const mappedId = await mapReferenceField(dbField, value, rowNumber);
-        if (mappedId) {
-          vendorData[dbField] = mappedId;
-        }
-      } else {
-        vendorData[dbField] = value;
-      }
+    if (normalizedValue !== undefined && normalizedValue !== null) {
+      vendorData[dbField] = normalizedValue;
     }
   }
 

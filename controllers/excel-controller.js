@@ -13,6 +13,21 @@ import ExcelJS from "exceljs";
 import Bill from '../models/bill-model.js';
 import VendorMaster from '../models/vendor-master-model.js';
 
+const buildResponsePayload = ({ success, message, toastMessage, data, meta, errors }) => ({
+  success,
+  message,
+  toastMessage: toastMessage ?? message,
+  data: data ?? {},
+  meta: meta ?? {},
+  errors: Array.isArray(errors) ? errors : errors ? [errors] : []
+});
+
+const sendSuccess = (res, statusCode, payload) =>
+  res.status(statusCode).json(buildResponsePayload({ success: true, ...payload }));
+
+const sendError = (res, statusCode, payload) =>
+  res.status(statusCode).json(buildResponsePayload({ success: false, ...payload }));
+
 // Helper function to check if vendor validation should be skipped
 const shouldSkipVendorValidation = async () => {
   try {
@@ -38,20 +53,20 @@ const generateReport = async (req, res) => {
 
     // Validate IDs
     if (!ids.length) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "Please select at least one bill to generate a report",
-        toastMessage: "Please select at least one bill"
+        toastMessage: "Please select at least one bill",
+        errors: [{ code: 'NO_BILL_IDS' }]
       });
     }
 
     const invalidIds = ids.filter(id => !mongoose.Types.ObjectId.isValid(id));
     if (invalidIds.length) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "Some bill IDs are invalid",
         toastMessage: "Invalid bill IDs selected. Please refresh and try again",
-        invalidIds
+        errors: [{ code: 'INVALID_BILL_IDS', invalidIds }],
+        meta: { invalidIds }
       });
     }
 
@@ -84,11 +99,10 @@ const generateReport = async (req, res) => {
     return res.send(fileBuffer);
   } catch (error) {
     console.error('Report generation error:', error);
-    return res.status(500).json({
-      success: false,
+    return sendError(res, 500, {
       message: "Failed to generate report",
       toastMessage: "Failed to generate report. Please try again",
-      error: error.message
+      errors: [{ message: error.message }]
     });
   }
 };
@@ -123,31 +137,32 @@ const upload = multer({
   }
 }).any();
 
+const runUpload = (req, res) => new Promise((resolve, reject) => {
+  upload(req, res, (err) => {
+    if (!err) {
+      return resolve();
+    }
+
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return reject(new Error('File size too large. Maximum size is 10MB'));
+      }
+      return reject(new Error(`File upload error: ${err.message}`));
+    }
+
+    return reject(err);
+  });
+});
+
 const importBills = async (req, res) => {
   try {
-    await new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-          switch (err.code) {
-            case 'LIMIT_FILE_SIZE':
-              reject(new Error('File size too large. Maximum size is 10MB'));
-              break;
-            default:
-              reject(new Error(`File upload error: ${err.message}`));
-          }
-        } else if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await runUpload(req, res);
 
     if (!req.files || !req.files.length) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "No file uploaded",
-        toastMessage: "Please select a file to upload"
+        toastMessage: "Please select a file to upload",
+        errors: [{ code: 'NO_FILE' }]
       });
     }
 
@@ -293,9 +308,10 @@ const importBills = async (req, res) => {
       if (fileExtension === '.csv') {
         // For CSV files, we don't support patch-only mode yet
         if (patchOnly) {
-          return res.status(400).json({
-            success: false,
-            message: "CSV patching is not supported yet. Please use Excel format."
+          return sendError(res, 400, {
+            message: "CSV patching is not supported yet. Please use Excel format.",
+            toastMessage: "CSV patching is not supported yet. Please use Excel format.",
+            errors: [{ code: 'UNSUPPORTED_PATCH_MODE' }]
           });
         }
         importResult = await importBillsFromCSV(tempFilePath, validVendorList);
@@ -318,94 +334,115 @@ const importBills = async (req, res) => {
       const invalidVendors = importResult.nonExistentVendors.map(v => v.vendorName || v.vendorNo);
       const uniqueInvalidVendors = [...new Set(invalidVendors)];
 
-      return res.status(202).json({  // 202 Accepted - partial processing
-        success: true,
+      return sendSuccess(res, 202, {
         message: "Import completed with warnings - some vendors not found in the vendor master",
         toastMessage: `Import completed but ${uniqueInvalidVendors.length} vendor(s) were skipped`,
-        details: {
-          inserted: importResult.inserted?.length || 0,
-          updated: importResult.updated?.length || 0,
-          skipped: importResult.nonExistentVendors.length,
-          totalVendors,
-          validVendors: validVendorNames.length,
-          invalidVendors: uniqueInvalidVendors.length
+        data: {
+          summary: {
+            inserted: importResult.inserted?.length || 0,
+            updated: importResult.updated?.length || 0,
+            skipped: importResult.nonExistentVendors.length,
+            totalVendors,
+            validVendors: validVendorNames.length,
+            invalidVendors: uniqueInvalidVendors.length
+          }
         },
-        nonExistentVendors: uniqueInvalidVendors,
-        skippedRows: importResult.nonExistentVendors.map(v => ({
-          rowNumber: v.rowNumber,
-          srNo: v.srNo,
-          vendorName: v.vendorName || 'Unknown',
-          vendorNo: v.vendorNo
-        }))
+        meta: {
+          nonExistentVendors: uniqueInvalidVendors,
+          skippedRows: importResult.nonExistentVendors.map(v => ({
+            rowNumber: v.rowNumber,
+            srNo: v.srNo,
+            vendorName: v.vendorName || 'Unknown',
+            vendorNo: v.vendorNo
+          }))
+        },
+        errors: [{ code: 'VENDOR_NOT_FOUND', count: uniqueInvalidVendors.length }]
       });
     }
 
     // Check for already existing bills
     if (importResult.alreadyExistingBills && importResult.alreadyExistingBills.length > 0) {
-      return res.status(202).json({
-        success: true,
+      return sendSuccess(res, 202, {
         message: "Some bills already exist in the database. Please use the PATCH endpoint instead.",
         toastMessage: `${importResult.alreadyExistingBills.length} bill(s) already exist. Use update option instead`,
-        details: {
-          inserted: importResult.inserted?.length || 0,
-          updated: importResult.updated?.length || 0,
-          alreadyExisting: importResult.alreadyExistingBills.length,
-          totalProcessed: importResult.totalProcessed,
+        data: {
+          summary: {
+            inserted: importResult.inserted?.length || 0,
+            updated: importResult.updated?.length || 0,
+            alreadyExisting: importResult.alreadyExistingBills.length,
+            totalProcessed: importResult.totalProcessed
+          }
+        },
+        meta: {
+          existingBills: importResult.alreadyExistingBills.map(bill => ({
+            srNo: bill.srNo,
+            _id: bill._id,
+            vendorName: bill.vendorName || 'Unknown',
+            rowNumber: bill.rowNumber
+          })),
+          recommendation: "To update these bills, please use the PATCH endpoint: POST /billdownload/patch-bills",
           vendorValidation: skipVendorValidation ? 'skipped' : 'enabled',
           mode: patchOnly ? 'patch-only' : 'normal'
         },
-        existingBills: importResult.alreadyExistingBills.map(bill => ({
-          srNo: bill.srNo,
-          _id: bill._id,
-          vendorName: bill.vendorName || 'Unknown',
-          rowNumber: bill.rowNumber
-        })),
-        recommendation: "To update these bills, please use the PATCH endpoint: POST /billdownload/patch-bills"
+        errors: [{ code: 'BILL_ALREADY_EXISTS', count: importResult.alreadyExistingBills.length }]
       });
     }
 
     // Return success response with clearer formatting info
-    return res.status(200).json({
-      success: true,
+    const insertedCount = Array.isArray(importResult.inserted)
+      ? importResult.inserted.length
+      : importResult.inserted || 0;
+    const updatedCount = Array.isArray(importResult.updated)
+      ? importResult.updated.length
+      : importResult.updated || 0;
+    const skippedCount = importResult.skipped || 0;
+    const errorCount = Array.isArray(importResult.errors)
+      ? importResult.errors.length
+      : importResult.errors || 0;
+
+    return sendSuccess(res, 200, {
       message: importResult.message || `Successfully processed ${importResult.totalProcessed || 0} bills`,
-      toastMessage: `Successfully imported ${(importResult.inserted || 0) + (importResult.updated || 0)} bill(s)`,
-      details: {
-        inserted: importResult.inserted || 0,
-        updated: importResult.updated || 0,
-        skipped: importResult.skipped || 0,
-        errors: importResult.errors || 0,
-        total: importResult.totalProcessed || 0,
+      toastMessage: `Successfully imported ${insertedCount + updatedCount} bill(s)`,
+      data: {
+        summary: {
+          inserted: insertedCount,
+          updated: updatedCount,
+          skipped: skippedCount,
+          errors: errorCount,
+          total: importResult.totalProcessed || insertedCount + updatedCount + skippedCount
+        },
+        records: {
+          inserted: Array.isArray(importResult.inserted) ? importResult.inserted.map(bill => {
+            const srNoStr = String(bill.srNo || '');
+            return {
+              _id: bill._id,
+              srNo: srNoStr,
+              excelSrNo: bill.excelSrNo || srNoStr,
+              formattedCorrectly: srNoStr.startsWith('2425')
+            };
+          }) : [],
+          updated: Array.isArray(importResult.updated) ? importResult.updated.map(bill => {
+            const srNoStr = String(bill.srNo || '');
+            return {
+              _id: bill._id,
+              srNo: srNoStr,
+              excelSrNo: bill.excelSrNo || srNoStr,
+              formattedCorrectly: srNoStr.startsWith('2425')
+            };
+          }) : []
+        }
+      },
+      meta: {
         vendorValidation: skipVendorValidation ? 'skipped' : 'enabled',
         mode: patchOnly ? 'patch-only' : 'normal'
-      },
-      data: {
-        inserted: Array.isArray(importResult.inserted) ? importResult.inserted.map(bill => {
-          const srNoStr = String(bill.srNo || '');
-          return {
-            _id: bill._id,
-            srNo: srNoStr,
-            excelSrNo: bill.excelSrNo || srNoStr,
-            formattedCorrectly: srNoStr.startsWith('2425')
-          };
-        }) : [],
-        updated: Array.isArray(importResult.updated) ? importResult.updated.map(bill => {
-          const srNoStr = String(bill.srNo || '');
-          return {
-            _id: bill._id,
-            srNo: srNoStr,
-            excelSrNo: bill.excelSrNo || srNoStr,
-            formattedCorrectly: srNoStr.startsWith('2425')
-          };
-        }) : []
       }
     });
   } catch (error) {
     console.error('Import error:', error);
-    return res.status(400).json({
-      success: false,
+    return sendError(res, 400, {
       message: error.message || "Failed to import bills",
       toastMessage: "Failed to import bills. Please check the file format and try again",
-      error: error.message
+      errors: [{ message: error.message }]
     });
   }
 };
@@ -413,28 +450,12 @@ const importBills = async (req, res) => {
 const patchBillsFromExcel = async (req, res) => {
   try {
     console.log('[PATCH DEBUG] patchBillsFromExcel called');
-    await new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-          switch (err.code) {
-            case 'LIMIT_FILE_SIZE':
-              reject(new Error('File size too large. Maximum size is 10MB'));
-              break;
-            default:
-              reject(new Error(`File upload error: ${err.message}`));
-          }
-        } else if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await runUpload(req, res);
     if (!req.files || !req.files.length) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "No file uploaded",
-        toastMessage: "Please select a file to upload"
+        toastMessage: "Please select a file to upload",
+        errors: [{ code: 'NO_FILE' }]
       });
     }
 
@@ -480,31 +501,29 @@ const patchBillsFromExcel = async (req, res) => {
 
     // If any rows were skipped or errors occurred, return error
     if ((patchResult.skipped && patchResult.skipped > 0) || (patchResult.errors && patchResult.errors.length > 0)) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: teamName
-        ? `Patch process complete with errors or skipped rows for ${teamName}`
-        : 'Patch process complete with errors or skipped rows (unrestricted)',
+          ? `Patch process complete with errors or skipped rows for ${teamName}`
+          : 'Patch process complete with errors or skipped rows (unrestricted)',
         toastMessage: `Update failed. ${patchResult.skipped || 0} row(s) skipped due to errors`,
-        details: patchResult
+        data: patchResult,
+        errors: [{ code: 'PATCH_INCOMPLETE', skipped: patchResult.skipped || 0 }]
       });
     }
 
-    return res.status(200).json({
-      success: true,
+    return sendSuccess(res, 200, {
       message: teamName
         ? `Patch process complete for ${teamName}`
         : 'Patch process complete (unrestricted)',
       toastMessage: `Successfully updated ${patchResult.updated} bill(s)`,
-      details: patchResult
+      data: patchResult
     });
   } catch (error) {
     console.error('Patch error:', error);
-    return res.status(400).json({
-      success: false,
+    return sendError(res, 400, {
       message: error.message || "Failed to patch bills",
       toastMessage: "Failed to update bills. Please check the file format and try again",
-      error: error.message
+      errors: [{ message: error.message }]
     });
   }
 };
@@ -512,23 +531,13 @@ const patchBillsFromExcel = async (req, res) => {
 // Function to import all vendor data from Excel/CSV
 const importVendors = async (req, res) => {
   try {
-    await new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-          reject(new Error(`File upload error: ${err.message}`));
-        } else if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await runUpload(req, res);
 
     if (!req.files || !req.files.length) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "No file uploaded",
-        toastMessage: "Please select a file to upload"
+        toastMessage: "Please select a file to upload",
+        errors: [{ code: 'NO_FILE' }]
       });
     }
 
@@ -540,10 +549,10 @@ const importVendors = async (req, res) => {
     // Check file extension
     const fileExtension = path.extname(uploadedFile.originalname).toLowerCase();
     if (fileExtension !== '.xlsx' && fileExtension !== '.xls') {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "Only Excel files (.xlsx, .xls) are allowed for vendor import",
-        toastMessage: "Please upload an Excel file (.xlsx or .xls)"
+        toastMessage: "Please upload an Excel file (.xlsx or .xls)",
+        errors: [{ code: 'INVALID_FILE_TYPE', received: fileExtension }]
       });
     }
 
@@ -563,12 +572,14 @@ const importVendors = async (req, res) => {
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
     if (missingHeaders.length > 0) {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: `Missing required columns: ${missingHeaders.join(', ')}`,
         toastMessage: `Excel file is missing required columns: ${missingHeaders.join(', ')}`,
-        missingHeaders,
-        foundHeaders: headers
+        data: {
+          missingHeaders,
+          foundHeaders: headers
+        },
+        errors: [{ code: 'MISSING_HEADERS', missingHeaders }]
       });
     }
     
@@ -582,27 +593,25 @@ const importVendors = async (req, res) => {
 
     // If any rows were skipped or errors occurred, return error
     if ((importResult.skipped && importResult.skipped > 0) || (importResult.errors && importResult.errors.length > 0)) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: 'Vendor import completed with errors or skipped rows',
         toastMessage: `Vendor import completed with ${importResult.errors?.length || 0} error(s)`,
-        details: importResult
+        data: importResult,
+        errors: [{ code: 'IMPORT_INCOMPLETE', skipped: importResult.skipped || 0 }]
       });
     }
 
-    return res.status(200).json({
-      success: true,
+    return sendSuccess(res, 200, {
       message: 'Vendor import process complete',
       toastMessage: `Successfully imported ${importResult.inserted} vendor(s)`,
-      details: importResult
+      data: importResult
     });
   } catch (error) {
     console.error('Vendor import error:', error);
-    return res.status(400).json({
-      success: false,
+    return sendError(res, 400, {
       message: 'Error importing vendors',
       toastMessage: 'Failed to import vendors. Please check the file format and try again',
-      error: error.message
+      errors: [{ message: error.message }]
     });
   }
 };
@@ -610,23 +619,13 @@ const importVendors = async (req, res) => {
 // Function to update only compliance and PAN status for vendors
 const updateVendorCompliance = async (req, res) => {
   try {
-    await new Promise((resolve, reject) => {
-      upload(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-          reject(new Error(`File upload error: ${err.message}`));
-        } else if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await runUpload(req, res);
 
     if (!req.files || !req.files.length) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "No file uploaded",
-        toastMessage: "Please select a file to upload"
+        toastMessage: "Please select a file to upload",
+        errors: [{ code: 'NO_FILE' }]
       });
     }
 
@@ -638,10 +637,10 @@ const updateVendorCompliance = async (req, res) => {
     // Check file extension
     const fileExtension = path.extname(uploadedFile.originalname).toLowerCase();
     if (fileExtension !== '.xlsx' && fileExtension !== '.xls') {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: "Only Excel files (.xlsx, .xls) are allowed for vendor import",
-        toastMessage: "Please upload an Excel file (.xlsx or .xls)"
+        toastMessage: "Please upload an Excel file (.xlsx or .xls)",
+        errors: [{ code: 'INVALID_FILE_TYPE', received: fileExtension }]
       });
     }
 
@@ -661,12 +660,14 @@ const updateVendorCompliance = async (req, res) => {
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
     if (missingHeaders.length > 0) {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: `Missing required columns: ${missingHeaders.join(', ')}`,
         toastMessage: `Excel file is missing required columns: ${missingHeaders.join(', ')}`,
-        missingHeaders,
-        foundHeaders: headers
+        data: {
+          missingHeaders,
+          foundHeaders: headers
+        },
+        errors: [{ code: 'MISSING_HEADERS', missingHeaders }]
       });
     }
 
@@ -678,40 +679,39 @@ const updateVendorCompliance = async (req, res) => {
 
     // If any errors occurred, return with error details
     if (updateResult.errors && updateResult.errors.length > 0) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: updateResult.summaryMessage || 'Vendor compliance update completed with errors',
         toastMessage: `Vendor compliance update completed with ${updateResult.errors.length} error(s)`,
-        details: {
+        data: {
           updated: updateResult.updated,
           skipped: updateResult.skipped,
           errors: updateResult.errors,
           referenceOptions: updateResult.referenceOptions
-        }
+        },
+        errors: [{ code: 'UPDATE_INCOMPLETE', count: updateResult.errors.length }]
       });
     }
 
     // If no vendors were updated (but no errors), return warning
     if (updateResult.updated === 0) {
-      return res.status(400).json({
-        success: false,
+      return sendError(res, 400, {
         message: updateResult.summaryMessage || 'No vendors were updated',
         toastMessage: 'No vendors were updated. Please check vendor numbers',
-        details: {
+        data: {
           updated: updateResult.updated,
           skipped: updateResult.skipped,
           errors: updateResult.errors,
           referenceOptions: updateResult.referenceOptions
-        }
+        },
+        errors: [{ code: 'NO_UPDATES' }]
       });
     }
 
     // Success - vendors were updated with no errors
-    return res.status(200).json({
-      success: true,
+    return sendSuccess(res, 200, {
       message: updateResult.summaryMessage || 'Vendor compliance update process complete',
       toastMessage: `Successfully updated ${updateResult.updated} vendor(s)`,
-      details: {
+      data: {
         updated: updateResult.updated,
         skipped: updateResult.skipped,
         referenceOptions: updateResult.referenceOptions
@@ -719,11 +719,10 @@ const updateVendorCompliance = async (req, res) => {
     });
   } catch (error) {
     console.error('Vendor compliance update error:', error);
-    return res.status(400).json({
-      success: false,
+    return sendError(res, 400, {
       message: 'Error updating vendor compliance',
       toastMessage: 'Failed to update vendor compliance. Please check the file format and try again',
-      error: error.message
+      errors: [{ message: error.message }]
     });
   }
 };
