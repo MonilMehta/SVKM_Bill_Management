@@ -4,6 +4,7 @@ import fs from 'fs';
 import VendorMaster from '../models/vendor-master-model.js';
 import ComplianceMaster from '../models/compliance-master-model.js';
 import PanStatusMaster from '../models/pan-status-master-model.js';
+import { vendorHeaderMapping } from './headerMap.js'; // Import centralized vendor header mapping
 
 /**
  * Maps reference values for compliance and PAN status
@@ -198,7 +199,6 @@ function readVendorWorkbook(workbook) {
       headers.push(cell.value?.toString().trim());
     });
   }
-
   return { worksheet, headers, headerRowIdx };
 }
 
@@ -486,7 +486,15 @@ export async function updateVendorComplianceFromExcel(filePath) {
     });
   }
 
+  // Use centralized vendor header mapping
   const headerToDbField = vendorHeaderMapping;
+  // Map the detected headers to DB fields for debugging
+  const mappedHeaders = headers.map(header => {
+    return {
+      excelHeader: header,
+      dbField: headerToDbField[header] || 'unmapped'
+    };
+  });
 
   let updated = 0, skipped = 0, errors = [];
 
