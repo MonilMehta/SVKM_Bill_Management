@@ -105,7 +105,7 @@ export const getSystemStats = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('System stats error:', error);
+    // console.error('System stats error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to get system statistics",
@@ -206,7 +206,7 @@ export const getVendorStats = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Vendor stats error:', error);
+    // console.error('Vendor stats error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to get vendor statistics",
@@ -287,7 +287,7 @@ export const getBillTimeStats = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Bill time stats error:', error);
+    // console.error('Bill time stats error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to get bill time statistics",

@@ -34,7 +34,7 @@ async function insertNatureOfWork() {
   await connectDB();
   await NatureOfWorkMaster.deleteMany({});
   await NatureOfWorkMaster.insertMany(works);
-  console.log("Nature of Work master data inserted.");
+  // console.log("Nature of Work master data inserted.");
   mongoose.connection.close();
 }
 

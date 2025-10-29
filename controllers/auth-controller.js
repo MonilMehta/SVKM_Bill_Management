@@ -59,7 +59,7 @@ export const register = async (req, res) => {
     sendTokenResponse(user, 201, res, 'User registered successfully');
     
   } catch (error) {
-    console.error('Registration error:', error);
+    // console.error('Registration error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to register user",
@@ -112,7 +112,7 @@ export const login = async (req, res) => {
     sendTokenResponse(user, 200, res, 'Login successful');
     
   } catch (error) {
-    console.error('Login error:', error);
+    // console.error('Login error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to login",
@@ -132,7 +132,7 @@ export const getMe = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Get current user error:', error);
+    // console.error('Get current user error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to get user information",
@@ -170,7 +170,7 @@ export const updatePassword = async (req, res) => {
     sendTokenResponse(user, 200, res, 'Password updated successfully');
     
   } catch (error) {
-    console.error('Update password error:', error);
+    // console.error('Update password error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to update password",
@@ -191,7 +191,7 @@ export const getUsers = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Get users error:', error);
+    // console.error('Get users error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to get users",
@@ -218,7 +218,7 @@ export const getUser = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Get user error:', error);
+    // console.error('Get user error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to get user",
@@ -263,7 +263,7 @@ export const updateUser = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Update user error:', error);
+    // console.error('Update user error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to update user",
@@ -300,7 +300,7 @@ export const deleteUser = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Delete user error:', error);
+    // console.error('Delete user error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to delete user",

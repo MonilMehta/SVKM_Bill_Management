@@ -92,7 +92,7 @@ const deleteAttachment = async (req, res, next) => {
       updatedBill,
     });
   } catch (error) {
-    console.log("Error while deleting the attachment", error);
+    // console.log("Error while deleting the attachment", error);
     return res.status(400).json({
       status: false,
       message: "failed to delete the attachment",
@@ -120,7 +120,7 @@ const createBill = async (req, res) => {
 
     const attachments = [];
     if (req.files && req.files.length > 0) {
-      console.log(`Processing ${req.files.length} files for upload`);
+      // console.log(`Processing ${req.files.length} files for upload`);
 
       for (const file of req.files) {
         try {
@@ -130,12 +130,12 @@ const createBill = async (req, res) => {
             fileKey: uploadResult.fileKey,
             fileUrl: uploadResult.url,
           });
-          console.log(`File uploaded: ${uploadResult.fileName}`);
+          // console.log(`File uploaded: ${uploadResult.fileName}`);
         } catch (uploadError) {
-          console.error(
-            `Error uploading file ${file.originalname}:`,
-            uploadError
-          );
+          // console.error(
+          //   `Error uploading file ${file.originalname}:`,
+          //   uploadError
+          // );
           return res.status(404).json({
             success: false,
             message: "Files could not be uploaded , please try again",
@@ -146,7 +146,7 @@ const createBill = async (req, res) => {
 
     // Create a base object with all fields initialized to null or empty objects
     const fyPrefix = getFinancialYearPrefix(new Date(req.body.billDate));
-    console.log(`[Create] Creating new bill with FY prefix: ${fyPrefix}`);
+    // console.log(`[Create] Creating new bill with FY prefix: ${fyPrefix}`);
 
     // Find the highest serial number for this financial year
     const highestSerialBill = await Bill.findOne(
@@ -161,13 +161,13 @@ const createBill = async (req, res) => {
       const serialPart = parseInt(highestSerialBill.srNo.substring(4));
       nextSerial = serialPart + 1;
     }
-    console.log(
-      `[Create] Highest serial number found: ${highestSerialBill?.srNo}, next serial: ${nextSerial}`
-    );
+    // console.log(
+    //   `[Create] Highest serial number found: ${highestSerialBill?.srNo}, next serial: ${nextSerial}`
+    // );
 
     const serialFormatted = nextSerial.toString().padStart(5, "0");
     const newSrNo = `${fyPrefix}${serialFormatted}`;
-    console.log(`[Create] Generated new srNo: ${newSrNo}`);
+    // console.log(`[Create] Generated new srNo: ${newSrNo}`);
 
     // Build a bill object with all schema fields, setting null/default for missing fields
     const schemaFields = Object.keys(Bill.schema.paths);
@@ -250,7 +250,7 @@ const createBill = async (req, res) => {
     }
 
     // Uniqueness check for vendor, taxInvNo, taxInvDate, region only for specific type of invoice
-    console.log("Type of invoice is : ",typeofinv);
+    // console.log("Type of invoice is : ",typeofinv);
     if (
   typeofinv != "Advance/LC/BG" &&
   typeofinv != "Direct FI Entry" &&
@@ -423,7 +423,7 @@ const receiveBillByPimoAccounts = async (req, res) => {
       bill: updatedBill,
     });
   } catch (error) {
-    console.error("Error receiving bill:", error);
+    // console.error("Error receiving bill:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to receive bill",
@@ -439,7 +439,7 @@ const getBill = async (req, res) => {
     let bill;
 
     let nbill = await Bill.findById(req.params.id);
-    console.log("Bill without masters", nbill);
+    // console.log("Bill without masters", nbill);
 
     bill = await Bill.findById(req.params.id)
       .populate("region")
@@ -454,7 +454,7 @@ const getBill = async (req, res) => {
       });
 
     // console.log("Retrieved bill:" , bill);
-    console.log("Retrieved bill nature of work:", bill?.natureOfWork);
+    // console.log("Retrieved bill nature of work:", bill?.natureOfWork);
     if (!bill) {
       return res.status(404).json({ message: "Bill not found" });
     }
@@ -481,7 +481,7 @@ const getBill = async (req, res) => {
       billObj.panStatus =
         billObj.vendor.PANStatus?.name || billObj.vendor.PANStatus || null;
     }
-    console.log("Bill object vendor:", billObj.vendor);
+    // console.log("Bill object vendor:", billObj.vendor);
     // Remove the vendor object itself
     delete billObj.vendor;
     res.status(200).json(billObj);
@@ -513,9 +513,9 @@ const updateBill = async (req, res) => {
 
       // If financial year has changed, we need to regenerate the serial number
       if (oldPrefix !== newPrefix) {
-        console.log(
-          `[Update] Financial year changed from ${oldPrefix} to ${newPrefix}, will regenerate srNo`
-        );
+        // console.log(
+        //   `[Update] Financial year changed from ${oldPrefix} to ${newPrefix}, will regenerate srNo`
+        // );
         regenerateSerialNumber = true;
         // Set flag for pre-save hook to regenerate srNo
         existingBill._forceSerialNumberGeneration = true;
@@ -644,10 +644,10 @@ const patchBill = async (req, res) => {
             fileUrl: uploadResult.url,
           });
         } catch (uploadError) {
-          console.error(
-            `Error uploading file ${file.originalname}:`,
-            uploadError
-          );
+          // console.error(
+          //   `Error uploading file ${file.originalname}:`,
+          //   uploadError
+          // );
           return res.status(404).json({
             success: false,
             message: "Files could not be uploaded, please try again",
@@ -671,9 +671,9 @@ const patchBill = async (req, res) => {
 
       // If financial year has changed, we need to regenerate the serial number
       if (oldPrefix !== newPrefix) {
-        console.log(
-          `[Patch] Financial year changed from ${oldPrefix} to ${newPrefix}, will regenerate srNo`
-        );
+        // console.log(
+        //   `[Patch] Financial year changed from ${oldPrefix} to ${newPrefix}, will regenerate srNo`
+        // );
         regenerateSerialNumber = true;
         // Set flag for pre-save hook to regenerate srNo
         existingBill._forceSerialNumberGeneration = true;
@@ -902,7 +902,7 @@ const patchBill = async (req, res) => {
       });
     }
 
-    console.log("Applying updates:", updates);
+    // console.log("Applying updates:", updates);
 
     // Apply the updates
     const updatedBill = await Bill.findByIdAndUpdate(
@@ -955,7 +955,7 @@ const patchBill = async (req, res) => {
       data: billObj,
     });
   } catch (error) {
-    console.error("Error patching bill:", error);
+    // console.error("Error patching bill:", error);
     return res.status(400).json({
       success: false,
       message: "Error updating bill",
@@ -1236,7 +1236,7 @@ export const getWorkflowHistory = async (req, res) => {
       lastUpdated: bill.workflowState.lastUpdated,
     });
   } catch (error) {
-    console.error("Workflow history retrieval error:", error);
+    // console.error("Workflow history retrieval error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve workflow history",
@@ -1294,7 +1294,7 @@ export const getBillsByWorkflowState = async (req, res) => {
       data: mappedBills,
     });
   } catch (error) {
-    console.error("Bills by state retrieval error:", error);
+    // console.error("Bills by state retrieval error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve bills by workflow state",
@@ -1414,7 +1414,7 @@ const editPaymentInstructions = async (req, res) => {
       bill,
     });
   } catch (error) {
-    console.error("Edit payment instructions error:", error);
+    // console.error("Edit payment instructions error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update payment instructions",
@@ -1467,7 +1467,7 @@ const notReceivedPimo = async (req, res) => {
       bill,
     });
   } catch (error) {
-    console.error("Failed to perform the operation:", error);
+    // console.error("Failed to perform the operation:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to perform the operation",
@@ -1518,7 +1518,7 @@ const notReceivedAccounts = async (req, res) => {
       bill,
     });
   } catch (error) {
-    console.error("Failed to perform the operation:", error);
+    // console.error("Failed to perform the operation:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to perform the operation",
@@ -1561,7 +1561,7 @@ const accountsPaymentReject = async (req, res) => {
       bill: billFound,
     });
   } catch (error) {
-    console.error("Failed to perform the operation:", error);
+    // console.error("Failed to perform the operation:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to perform the operation",

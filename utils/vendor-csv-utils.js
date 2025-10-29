@@ -50,7 +50,7 @@ async function getValidReferenceValues(field) {
     referenceValuesCache[field] = values;
     return values;
   } catch (error) {
-    console.error(`Error fetching valid ${field} values:`, error);
+    // console.error(`Error fetching valid ${field} values:`, error);
     return [];
   }
 }
@@ -70,7 +70,7 @@ async function mapReferenceValue(field, value) {
   const validValues = await getValidReferenceValues(field);
 
   if (validValues.length === 0) {
-    console.warn(`No valid ${field} values found in the database`);
+    // console.warn(`No valid ${field} values found in the database`);
     return { id: undefined, validValues: [], bestMatch: undefined };
   }
 
@@ -170,7 +170,7 @@ async function ensureMasterValuesExist(createMissing = false) {
     referenceValuesCache.PANStatus = null;
 
   } catch (error) {
-    console.error('Error ensuring master values exist:', error);
+    // console.error('Error ensuring master values exist:', error);
   }
 }
 
@@ -632,12 +632,12 @@ export async function updateVendorComplianceFromExcel(filePath) {
       if (Object.keys(updateObj).length > 0) {
         await VendorMaster.updateOne({ _id: vendor._id }, { $set: updateObj });
         updated++;
-        console.log(`[VENDOR COMPLIANCE UPDATE] Updated vendor ${vendorNo} with fields:`, updateObj);
+        // console.log(`[VENDOR COMPLIANCE UPDATE] Updated vendor ${vendorNo} with fields:`, updateObj);
       } else {
         skipped++;
       }
     } catch (error) {
-      console.error(`[VENDOR COMPLIANCE ERROR] Row ${rowNumber}:`, error);
+      // console.error(`[VENDOR COMPLIANCE ERROR] Row ${rowNumber}:`, error);
       errors.push({
         row: rowNumber,
         error: error.message

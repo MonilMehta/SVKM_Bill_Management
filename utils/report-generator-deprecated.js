@@ -26,7 +26,7 @@ const flattenBill = (bill) => {
 // This version provides basic data export without complex formatting
 export const generateExcelReport = async (billIds) => {
   const bills = await Bill.find({ _id: { $in: billIds } }).lean();
-  console.log("Total bills : ", bills.length);
+  // console.log("Total bills : ", bills.length);
   
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Bills Report");
@@ -69,7 +69,7 @@ export const generateExcelReport = async (billIds) => {
 /*
 export const generateExcelReport = async (billIds) => {
   const bills = await Bill.find({ _id: { $in: billIds } }).lean();
-  console.log("Total bills : ", bills.length);
+  // console.log("Total bills : ", bills.length);
   
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Bills Report");
@@ -255,7 +255,7 @@ export const generateExcelReport = async (billIds) => {
 // PDF Report - One bill per page with improved layout
 export const generatePDFReport = async (billIds) => {
   const bills = await Bill.find({ _id: { $in: billIds } }).lean();
-  console.log("Total bills : ", bills.length);
+  // console.log("Total bills : ", bills.length);
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
   
   let buffers = [];
@@ -419,11 +419,11 @@ export const exportBillsToCSV = async (billIds) => {
       const csv = json2csvParser.parse(flattenedBills);
       return Buffer.from(csv, 'utf-8');
     } catch (parseError) {
-      console.error('Error parsing bills to CSV:', parseError);
+      // console.error('Error parsing bills to CSV:', parseError);
       throw new Error(`Failed to convert bills to CSV format: ${parseError.message}`);
     }
   } catch (error) {
-    console.error('Error in exportBillsToCSV:', error);
+    // console.error('Error in exportBillsToCSV:', error);
     throw error;
   }
 };

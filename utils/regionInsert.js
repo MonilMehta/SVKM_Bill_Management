@@ -25,7 +25,7 @@ async function insertRegions() {
   for (const name of regions) {
     await RegionMaster.updateOne({ name }, { name }, { upsert: true });
   }
-  console.log("Regions inserted/updated!");
+  // console.log("Regions inserted/updated!");
   await mongoose.disconnect();
 }
 

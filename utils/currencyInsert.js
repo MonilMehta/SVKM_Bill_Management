@@ -13,7 +13,7 @@ async function insertCurrencies() {
   await connectDB();
   await CurrencyMaster.deleteMany({});
   await CurrencyMaster.insertMany(currencies);
-  console.log("Currency master data inserted.");
+  // console.log("Currency master data inserted.");
   mongoose.connection.close();
 }
 

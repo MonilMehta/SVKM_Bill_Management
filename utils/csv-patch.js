@@ -133,7 +133,7 @@ export const parseDate = (dateString) => {
     
     return null;
   } catch (error) {
-    console.error(`Error parsing date '${dateString}':`, error);
+    // console.error(`Error parsing date '${dateString}':`, error);
     return null;
   }
 };
@@ -377,7 +377,7 @@ export const convertTypes = (data) => {
             result.accountsDept[dateField] = parseDate(result.accountsDept[dateField]);
           }
         } catch (error) {
-          console.error(`Error parsing accountsDept.${dateField}:`, error);
+          // console.error(`Error parsing accountsDept.${dateField}:`, error);
           // Set to null to avoid validation error
           result.accountsDept[dateField] = null;
         }
@@ -511,7 +511,7 @@ export const validateRequiredFields = async (data) => {
         data.vendor = new mongoose.Types.ObjectId();
       }
     } catch (error) {
-      console.error('Error finding vendor:', error);
+      // console.error('Error finding vendor:', error);
       data.vendor = new mongoose.Types.ObjectId();
     }
   }
@@ -547,7 +547,7 @@ export const validateRequiredFields = async (data) => {
       }
     }
   } catch (error) {
-    console.error('Error setting compliance206AB:', error);
+    // console.error('Error setting compliance206AB:', error);
     data.compliance206AB = new mongoose.Types.ObjectId();
   }
   
@@ -591,7 +591,7 @@ export const validateRequiredFields = async (data) => {
       }
     }
   } catch (error) {
-    console.error('Error setting currency:', error);
+    // console.error('Error setting currency:', error);
     data.currency = new mongoose.Types.ObjectId();
   }
 
@@ -615,7 +615,7 @@ export const validateRequiredFields = async (data) => {
       data.region = null;
     }
   } catch (error) {
-    console.error('Error setting region:', error);
+    // console.error('Error setting region:', error);
     data.region = null;
   }
 
@@ -678,7 +678,7 @@ export const validateRequiredFields = async (data) => {
       data.natureOfWork = defaultWork ? defaultWork._id : new mongoose.Types.ObjectId();
     }
   } catch (error) {
-    console.error('Error setting natureOfWork:', error);
+    // console.error('Error setting natureOfWork:', error);
     data.natureOfWork = new mongoose.Types.ObjectId();
   }
 

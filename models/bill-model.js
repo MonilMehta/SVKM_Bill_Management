@@ -753,9 +753,9 @@ const billSchema = new mongoose.Schema(
 billSchema.methods.setImportMode = function (isImport) {
   // Explicitly convert to boolean to prevent any "truthy" values from causing issues
   this._importMode = isImport === true;
-  console.log(
-    `[Bill] Import mode ${this._importMode ? "enabled" : "disabled"}`
-  );
+  // console.log(
+  //   `[Bill] Import mode ${this._importMode ? "enabled" : "disabled"}`
+  // );
 };
 
 const Bill = mongoose.model("Bill", billSchema);
