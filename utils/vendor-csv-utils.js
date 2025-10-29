@@ -141,26 +141,22 @@ async function ensureMasterValuesExist(createMissing = false) {
       'Not Available'
     ];
 
-    // Check and create missing compliance statuses
     for (const status of complianceStatuses) {
       const exists = await ComplianceMaster.findOne({
         compliance206AB: { $regex: new RegExp(`^${status}$`, 'i') }
       });
 
       if (!exists) {
-        console.log(`Creating missing compliance status: ${status}`);
         await ComplianceMaster.create({ compliance206AB: status });
       }
     }
 
-    // Check and create missing PAN statuses
     for (const status of panStatuses) {
       const exists = await PanStatusMaster.findOne({
         name: { $regex: new RegExp(`^${status}$`, 'i') }
       });
 
       if (!exists) {
-        console.log(`Creating missing PAN status: ${status}`);
         await PanStatusMaster.create({
           name: status.toUpperCase(),
           description: `Auto-created from import on ${new Date().toISOString().split('T')[0]}`,
@@ -178,227 +174,199 @@ async function ensureMasterValuesExist(createMissing = false) {
   }
 }
 
-export async function insertVendorsFromExcel(filePath) {
-  // Do NOT auto-create reference values - set to false
-  await ensureMasterValuesExist(false);
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(filePath);
+/**
+ * Reads Excel workbook and finds the headers row
+ * @param {Object} workbook - ExcelJS workbook object
+ * @returns {Object} Object containing worksheet, headers, and headerRowIdx
+ * @throws {Error} If no worksheet is found
+ */
+function readVendorWorkbook(workbook) {
   const worksheet = workbook.getWorksheet(1);
   if (!worksheet) throw new Error('No worksheet found');
 
-  // Find the first row with actual headers (skip report header)
   let headerRowIdx = 1;
   let headers = [];
 
-  // Try to find the headers row - first check if row 1 has headers
   worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
     headers.push(cell.value?.toString().trim());
   });
 
-  // If the first cell is a report header or if the first row has fewer than 3 cells, 
-  // assume the headers are in row 2 (which is common in exported reports)
   if (headers[0]?.toLowerCase().includes('report generated') || headers.length < 3 ||
     (headers[0] === 'S.No' || headers[0] === 'Sr No' || headers[0] === 'Sl.No')) {
-    headerRowIdx = 2; // Second row has actual column headers
+    headerRowIdx = 2;
     headers = [];
     worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
       headers.push(cell.value?.toString().trim());
     });
-    console.log(`Using row ${headerRowIdx} as headers row:`, headers);
   }
+  return { worksheet, headers, headerRowIdx };
+}
 
-  // Use centralized vendor header mapping
-  const headerToDbField = vendorHeaderMapping;
-
-  // Debug the detected headers
-  console.log('Detected headers in Excel:', headers);
-
-  // Map the detected headers to DB fields for debugging
-  const mappedHeaders = headers.map(header => {
-    return {
-      excelHeader: header,
-      dbField: headerToDbField[header] || 'unmapped'
-    };
+/**
+ * Extracts vendor data from an Excel row
+ * @param {Object} row - Excel row object
+ * @param {Array} headers - Array of header names
+ * @returns {Object} Raw vendor data object
+ */
+function extractVendorRowData(row, headers) {
+  const rowData = {};
+  row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    const header = headers[colNumber - 1];
+    rowData[header] = cell.value;
   });
-  console.log('Header mapping:', mappedHeaders);
+  return rowData;
+}
 
-  let inserted = 0, updated = 0, skipped = 0, errors = [];
+/**
+ * Parses vendor number from various formats
+ * @param {*} value - Value to parse
+ * @param {number} rowNumber - Row number for logging
+ * @returns {number|*} Parsed vendor number or original value
+ */
+function parseVendorNumber(value, rowNumber) {
+  if (typeof value === 'string') {
+    return parseInt(value.replace(/[^\d]/g, ''), 10);
+  } else if (typeof value === 'number') {
+    return value;
+  } else if (value instanceof Date) {
+    return value.getTime();
+  }
+  return value;
+}
 
-  // Process each row
-  for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
-    const row = worksheet.getRow(rowNumber);
-    if (!row.getCell(1).value) continue;
+/**
+ * Parses array field (email or phone numbers)
+ * @param {*} value - Value to parse
+ * @returns {Array} Array of parsed values
+ */
+function parseArrayField(value) {
+  if (typeof value === 'string') {
+    return value.split(/[,;\s\n\r]+/).map(v => v.trim()).filter(Boolean);
+  } else if (Array.isArray(value)) {
+    return value.map(v => v.toString().trim()).filter(Boolean);
+  } else if (value) {
+    return [value.toString().trim()];
+  } else {
+    return [];
+  }
+}
 
-    const rowData = {};
-    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const header = headers[colNumber - 1];
-      rowData[header] = cell.value;
-    });
+/**
+ * Maps reference field value to master data ObjectId
+ * @param {string} field - Field name (complianceStatus or PANStatus)
+ * @param {string} value - Value to map
+ * @param {number} rowNumber - Row number for logging
+ * @returns {Promise<ObjectId|null>} Mapped ObjectId or null if not found
+ */
+async function mapReferenceField(field, value, rowNumber) {
+  const { id, validValues, bestMatch } = await mapReferenceValue(field, value.toString());
 
-    try {
-      // Extract vendor data
-      const vendorData = {};
-      console.log("In vendor-csv-utils");
+  if (id) {
+    return id;
+  } else {
+    const fieldDisplay = field === 'complianceStatus' ? '206AB Compliance' : 'PAN Status';
+    const validOptionsMsg = validValues.length > 0
+      ? `Valid options are: ${validValues.join(', ')}`
+      : 'No valid options found in master table';
 
-      for (const [header, dbField] of Object.entries(headerToDbField)) {
-        if (rowData[header] !== undefined && rowData[header] !== null) {
-          let value = rowData[header];
+    return null;
+  }
+}
 
-          // Handle numeric conversion for vendor number
-          if (dbField === 'vendorNo') {
-            if (typeof value === 'string') {
-              // Extract numeric part from string
-              value = parseInt(value.replace(/[^\d]/g, ''), 6);
-            } else if (typeof value === 'number') {
-              // Already a number, keep as is
-              value = value;
-            } else if (value instanceof Date) {
-              // Excel sometimes interprets numbers as dates
-              value = value.getTime();
-            }
+/**
+ * Processes vendor row data and extracts vendor fields
+ * @param {Object} rowData - Raw row data
+ * @param {number} rowNumber - Row number for logging
+ * @returns {Promise<Object>} Processed vendor data
+ */
+async function processVendorRowData(rowData, rowNumber) {
+  const vendorData = {};
 
-            // if (isNaN(value) || value <= 0) {
-            //   // Generate a placeholder vendor number based on row number
-            //   value = 90000 + rowNumber;
-            //   console.log(`Generated placeholder vendor number for row ${rowNumber}: ${value}`);
-            // }
-          }
+  for (const [header, dbField] of Object.entries(VENDOR_HEADER_MAPPING)) {
+    if (rowData[header] !== undefined && rowData[header] !== null) {
+      let value = rowData[header];
 
-          // Handle email and phone - convert to array format
-          if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
-            if (typeof value === 'string') {
-              value = value.split(/[,;\s\n\r]+/).map(v => v.trim()).filter(Boolean);
-            } else if (Array.isArray(value)) {
-              value = value.map(v => v.toString().trim()).filter(Boolean);
-            } else if (value) {
-              value = [value.toString().trim()];
-            } else {
-              value = [];
-            }
-          }
-
-          // Map reference fields
-          if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
-            const { id, validValues, bestMatch } = await mapReferenceValue(dbField, value.toString());
-
-            if (id) {
-              vendorData[dbField] = id;
-              // If we used a fuzzy match, log what we matched it to
-              if (bestMatch && bestMatch.toLowerCase() !== value.toString().toLowerCase()) {
-                console.log(`Mapped ${dbField} value "${value}" to "${bestMatch}"`);
-              }
-            } else {
-              // Instead of erroring out, log a warning and skip setting this field
-              const fieldDisplay = dbField === 'complianceStatus' ? '206AB Compliance' : 'PAN Status';
-              const validOptionsMsg = validValues.length > 0
-                ? `Valid options are: ${validValues.join(', ')}`
-                : 'No valid options found in master table';
-
-              console.log(`[WARNING] Row ${rowNumber}: Could not map ${fieldDisplay} value: "${value}". ${validOptionsMsg}`);
-              console.log(`[INFO] Continuing import without setting ${fieldDisplay} field`);
-              // We don't set this field in vendorData, effectively making it null/undefined
-            }
-          } else {
-            vendorData[dbField] = value;
-          }
-        }
+      if (dbField === 'vendorNo') {
+        value = parseVendorNumber(value, rowNumber);
       }
 
-      // Check if required fields are present - reference fields are now optional
-      // const requiredFields = ['vendorNo', 'vendorName', 'PAN', 'GSTNumber'];
-      const requiredFields = ['vendorNo', 'vendorName', 'PANStatus', 'complianceStatus'];
-      const missingFields = requiredFields.filter(field => !vendorData[field]);
-
-      if (missingFields.length > 0) {
-        console.log(`Row ${rowNumber}: Missing fields: ${missingFields.join(', ')}`);
-        console.log('Row data:', rowData);
-        console.log('Processed vendor data:', vendorData);
-
-        // Try to infer values for missing fields
-        if (!vendorData.PAN && vendorData.vendorName) {
-          vendorData.PAN = '';
-          // Try to generate a placeholder PAN from vendor name
-          // const sanitizedName = vendorData.vendorName.replace(/[^A-Z]/gi, '').toUpperCase();
-          // if (sanitizedName.length >= 3) {
-          //   vendorData.PAN = `TEMP${sanitizedName.substring(0, 3)}0000P`;
-          //   console.log(`Generated placeholder PAN for vendor ${vendorData.vendorName}: ${vendorData.PAN}`);
-          // }
-        }
-
-        if (!vendorData.GSTNumber && vendorData.PAN) {
-          vendorData.GSTNumber = '';
-          // vendorData.GSTNumber = `27${vendorData.PAN}1Z0`;
-          // console.log(`Generated placeholder GST for vendor ${vendorData.vendorName}: ${vendorData.GSTNumber}`);
-        }
-
-        // Don't try to fill in reference fields - leave them empty
-        if (!vendorData.complianceStatus) {
-          console.log(`No compliance status found for vendor ${vendorData.vendorName} - leaving it empty`);
-        }
-
-        if (!vendorData.PANStatus) {
-          console.log(`No PAN status found for vendor ${vendorData.vendorName} - leaving it empty`);
-        }
-
-        // Re-check for missing fields after our attempts to fill them
-        const stillMissingFields = requiredFields.filter(field => !vendorData[field]);
-        if (stillMissingFields.length > 0) {
-          errors.push({
-            row: rowNumber,
-            error: `Missing required fields: ${stillMissingFields.join(', ')}`
-          });
-          skipped++;
-          continue;
-        } else {
-          console.log(`Fixed missing fields for row ${rowNumber}`);
-        }
+      if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
+        value = parseArrayField(value);
       }
 
-      // Ensure emailIds and phoneNumbers are present
-      if (!vendorData.emailIds || vendorData.emailIds.length === 0) {
-        vendorData.emailIds = [''];
-        // vendorData.emailIds = ['no-email@example.com'];
-      }
-
-      if (!vendorData.phoneNumbers || vendorData.phoneNumbers.length === 0) {
-        vendorData.phoneNumbers = [''];
-        // vendorData.phoneNumbers = ['0000000000'];
-      }
-
-      // Check if vendor already exists
-      const existingVendor = await VendorMaster.findOne({ vendorNo: vendorData.vendorNo });
-
-      if (existingVendor) {
-        // Skip existing vendor - do not update during import
-        skipped++;
-        errors.push({
-          row: rowNumber,
-          error: `Vendor ${vendorData.vendorNo} already exists. Use Mass Update to modify existing vendors.`
-        });
-        console.log(`[VENDOR SKIP] Vendor ${vendorData.vendorNo} already exists, skipping`);
+      if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
+        const mappedId = await mapReferenceField(dbField, value, rowNumber);
+        if (mappedId) {
+          vendorData[dbField] = mappedId;
+        }
       } else {
-        // Insert new vendor
-        await VendorMaster.create(vendorData);
-        inserted++;
-        console.log(`[VENDOR INSERT] Created vendor ${vendorData.vendorNo}`);
+        vendorData[dbField] = value;
       }
-    } catch (error) {
-      console.error(`[VENDOR ERROR] Row ${rowNumber}:`, error);
-      errors.push({
-        row: rowNumber,
-        error: error.message
-      });
-      skipped++;
     }
   }
 
-  console.log(`[VENDOR IMPORT SUMMARY] Inserted: ${inserted}, Updated: ${updated}, Skipped: ${skipped}, Errors: ${errors.length}`);
+  return vendorData;
+}
 
-  // Get valid reference values to include in response
-  const validComplianceValues = await getValidReferenceValues('complianceStatus');
-  const validPanStatusValues = await getValidReferenceValues('PANStatus');
+/**
+ * Validates required vendor fields
+ * @param {Object} vendorData - Vendor data to validate
+ * @param {number} rowNumber - Row number for logging
+ * @param {Object} rowData - Original row data
+ * @returns {Object} Validation result with valid flag and optional error message
+ */
+function validateVendorFields(vendorData, rowNumber, rowData) {
+  const requiredFields = ['vendorNo', 'vendorName', 'PANStatus', 'complianceStatus'];
+  const missingFields = requiredFields.filter(field => !vendorData[field]);
 
-  // Create summary message
+  if (missingFields.length === 0) {
+    return { valid: true };
+  }
+
+  if (!vendorData.PAN && vendorData.vendorName) {
+    vendorData.PAN = '';
+  }
+
+  if (!vendorData.GSTNumber && vendorData.PAN) {
+    vendorData.GSTNumber = '';
+  }
+
+  const stillMissingFields = requiredFields.filter(field => !vendorData[field]);
+  if (stillMissingFields.length > 0) {
+    return {
+      valid: false,
+      error: `Missing required fields: ${stillMissingFields.join(', ')}`
+    };
+  } else {
+    return { valid: true };
+  }
+}
+
+/**
+ * Ensures contact fields (email and phone) have default values
+ * @param {Object} vendorData - Vendor data to ensure contact fields
+ */
+function ensureContactFields(vendorData) {
+  if (!vendorData.emailIds || vendorData.emailIds.length === 0) {
+    vendorData.emailIds = [''];
+  }
+
+  if (!vendorData.phoneNumbers || vendorData.phoneNumbers.length === 0) {
+    vendorData.phoneNumbers = [''];
+  }
+}
+
+/**
+ * Formats vendor import results
+ * @param {number} inserted - Number of vendors inserted
+ * @param {number} updated - Number of vendors updated
+ * @param {number} skipped - Number of vendors skipped
+ * @param {Array} errors - Array of error messages
+ * @param {Array} validComplianceValues - Valid compliance status values
+ * @param {Array} validPanStatusValues - Valid PAN status values
+ * @returns {Object} Formatted result object with summary
+ */
+function formatVendorImportResults(inserted, updated, skipped, errors, validComplianceValues, validPanStatusValues) {
   let summaryMessage = '';
   if (inserted > 0 && skipped === 0) {
     summaryMessage = `Successfully imported ${inserted} new vendor(s)`;
@@ -421,6 +389,68 @@ export async function insertVendorsFromExcel(filePath) {
       panStatus: validPanStatusValues.map(v => v.value)
     }
   };
+}
+
+/**
+ * Imports vendors from an Excel file
+ * @param {string} filePath - Path to Excel file
+ * @returns {Promise<Object>} Import result with counts and errors
+ * @throws {Error} If file cannot be read or processed
+ */
+export async function insertVendorsFromExcel(filePath) {
+  await ensureMasterValuesExist(false);
+  
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  
+  const { worksheet, headers, headerRowIdx } = readVendorWorkbook(workbook);
+
+  let inserted = 0, updated = 0, skipped = 0, errors = [];
+
+  for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
+    const row = worksheet.getRow(rowNumber);
+    if (!row.getCell(1).value) continue;
+
+    const rowData = extractVendorRowData(row, headers);
+
+    try {
+      const vendorData = await processVendorRowData(rowData, rowNumber);
+
+      // Validate required fields
+      const validation = validateVendorFields(vendorData, rowNumber, rowData);
+      if (!validation.valid) {
+        errors.push({ row: rowNumber, error: validation.error });
+        skipped++;
+        continue;
+      }
+
+      // Ensure email and phone arrays are present
+      ensureContactFields(vendorData);
+
+      // Check if vendor already exists
+      const existingVendor = await VendorMaster.findOne({ vendorNo: vendorData.vendorNo });
+
+      if (existingVendor) {
+        // Skip existing vendor - do not update during import
+        skipped++;
+        errors.push({
+          row: rowNumber,
+          error: `Vendor ${vendorData.vendorNo} already exists. Use Mass Update to modify existing vendors.`
+        });
+      } else {
+        await VendorMaster.create(vendorData);
+        inserted++;
+      }
+    } catch (error) {
+      errors.push({ row: rowNumber, error: error.message });
+      skipped++;
+    }
+  }
+
+  const validComplianceValues = await getValidReferenceValues('complianceStatus');
+  const validPanStatusValues = await getValidReferenceValues('PANStatus');
+
+  return formatVendorImportResults(inserted, updated, skipped, errors, validComplianceValues, validPanStatusValues);
 }
 
 /**
@@ -449,20 +479,15 @@ export async function updateVendorComplianceFromExcel(filePath) {
   // assume the headers are in row 2 (which is common in exported reports)
   if (headers[0]?.toLowerCase().includes('report generated') || headers.length < 3 ||
     (headers[0] === 'S.No' || headers[0] === 'Sr No' || headers[0] === 'Sl.No')) {
-    headerRowIdx = 2; // Second row has actual column headers
+    headerRowIdx = 2;
     headers = [];
     worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
       headers.push(cell.value?.toString().trim());
     });
-    console.log(`Using row ${headerRowIdx} as headers row:`, headers);
   }
 
   // Use centralized vendor header mapping
   const headerToDbField = vendorHeaderMapping;
-
-  // Debug the detected headers
-  console.log('Detected headers in Excel:', headers);
-
   // Map the detected headers to DB fields for debugging
   const mappedHeaders = headers.map(header => {
     return {
@@ -470,11 +495,9 @@ export async function updateVendorComplianceFromExcel(filePath) {
       dbField: headerToDbField[header] || 'unmapped'
     };
   });
-  console.log('Header mapping:', mappedHeaders);
 
   let updated = 0, skipped = 0, errors = [];
 
-  // Process each row
   for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
     if (!row.getCell(1).value) continue;
@@ -529,40 +552,15 @@ export async function updateVendorComplianceFromExcel(filePath) {
 
         if (complianceValue) {
           updateObj.complianceStatus = complianceValue;
-          // If we used a fuzzy match, log what we matched it to
-          if (complianceMatch && complianceMatch.toLowerCase() !== rowData['206AB Compliance'].toString().toLowerCase()) {
-            console.log(`Mapped compliance value "${rowData['206AB Compliance']}" to "${complianceMatch}"`);
-          }
-        } else {
-          // Log a warning but continue without updating this field
-          const validOptionsMsg = validComplianceValues.length > 0
-            ? `Valid options are: ${validComplianceValues.join(', ')}`
-            : 'No valid options found in compliance master table';
-
-          console.log(`[WARNING] Row ${rowNumber}: Could not map compliance value: "${rowData['206AB Compliance']}". ${validOptionsMsg}`);
-          console.log(`[INFO] Skipping compliance update for vendor ${rowData['Vendor No'] || rowData['Vendor no']}`);
         }
       }
 
-      // Process PAN Status
       if (rowData['PAN Status'] !== undefined && rowData['PAN Status'] !== null) {
         const { id: panStatusValue, validValues: validPanValues, bestMatch: panMatch } =
           await mapReferenceValue('PANStatus', rowData['PAN Status'].toString());
 
         if (panStatusValue) {
           updateObj.PANStatus = panStatusValue;
-          // If we used a fuzzy match, log what we matched it to
-          if (panMatch && panMatch.toLowerCase() !== rowData['PAN Status'].toString().toLowerCase()) {
-            console.log(`Mapped PAN status value "${rowData['PAN Status']}" to "${panMatch}"`);
-          }
-        } else {
-          // Log a warning but continue without updating this field
-          const validOptionsMsg = validPanValues.length > 0
-            ? `Valid options are: ${validPanValues.join(', ')}`
-            : 'No valid options found in PAN status master table';
-
-          console.log(`[WARNING] Row ${rowNumber}: Could not map PAN status value: "${rowData['PAN Status']}". ${validOptionsMsg}`);
-          console.log(`[INFO] Skipping PAN status update for vendor ${rowData['Vendor No'] || rowData['Vendor no']}`);
         }
       }
 
@@ -648,13 +646,9 @@ export async function updateVendorComplianceFromExcel(filePath) {
     }
   }
 
-  console.log(`[VENDOR COMPLIANCE SUMMARY] Updated: ${updated}, Skipped: ${skipped}, Errors: ${errors.length}`);
-
-  // Get valid reference values to include in response
   const validComplianceValues = await getValidReferenceValues('complianceStatus');
   const validPanStatusValues = await getValidReferenceValues('PANStatus');
 
-  // Create a detailed summary message
   let summaryMessage = '';
   if (updated > 0 && errors.length === 0) {
     summaryMessage = `Successfully updated ${updated} vendor(s)`;
