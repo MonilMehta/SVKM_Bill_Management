@@ -76,13 +76,9 @@ async function getReferenceCache(field) {
     return cacheEntry;
   } catch (error) {
     console.error(`Error fetching valid ${field} values:`, error);
-<<<<<<< HEAD
-    return [];
-=======
     const cacheEntry = { values: [], exactMap: new Map(), fuzzyBuckets: new Map() };
     referenceValuesCache[field] = cacheEntry;
     return cacheEntry;
->>>>>>> 5ebebd88a855abe4cfe1423f2b08a71cdc6bcafc
   }
 }
 
