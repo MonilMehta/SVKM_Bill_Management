@@ -18,13 +18,17 @@ const referenceValuesCache = {
   PANStatus: null
 };
 
-/**
- * Gets all valid values for a reference field from the master tables
- * @param {string} field - The field to get valid values for
- * @returns {Promise<Array<{id: string, value: string}>>} Array of valid values with their IDs
- */
-async function getValidReferenceValues(field) {
-  // Return from cache if available
+function invalidateReferenceCache(field) {
+  if (field) {
+    referenceValuesCache[field] = null;
+    return;
+  }
+
+  referenceValuesCache.complianceStatus = null;
+  referenceValuesCache.PANStatus = null;
+}
+
+async function getReferenceCache(field) {
   if (referenceValuesCache[field]) {
     return referenceValuesCache[field];
   }
@@ -34,25 +38,58 @@ async function getValidReferenceValues(field) {
 
     if (field === 'complianceStatus') {
       const docs = await ComplianceMaster.find().lean();
-      values = docs.map(doc => ({
-        id: doc._id.toString(),
-        value: doc.compliance206AB
-      }));
+      values = docs.map(doc => {
+        const stringValue = (doc.compliance206AB ?? '').toString();
+        return {
+          id: doc._id.toString(),
+          value: stringValue,
+          normalizedValue: stringValue.trim().toLowerCase()
+        };
+      });
     } else if (field === 'PANStatus') {
       const docs = await PanStatusMaster.find().lean();
-      values = docs.map(doc => ({
-        id: doc._id.toString(),
-        value: doc.name
-      }));
+      values = docs.map(doc => {
+        const stringValue = (doc.name ?? '').toString();
+        return {
+          id: doc._id.toString(),
+          value: stringValue,
+          normalizedValue: stringValue.trim().toLowerCase()
+        };
+      });
     }
 
-    // Cache the values for future use
-    referenceValuesCache[field] = values;
-    return values;
+    const exactMap = new Map();
+    const fuzzyBuckets = new Map();
+
+    for (const entry of values) {
+      exactMap.set(entry.normalizedValue, entry);
+
+      const bucketKey = entry.normalizedValue[0] || '';
+      if (!fuzzyBuckets.has(bucketKey)) {
+        fuzzyBuckets.set(bucketKey, []);
+      }
+      fuzzyBuckets.get(bucketKey).push(entry);
+    }
+
+    const cacheEntry = { values, exactMap, fuzzyBuckets };
+    referenceValuesCache[field] = cacheEntry;
+    return cacheEntry;
   } catch (error) {
     console.error(`Error fetching valid ${field} values:`, error);
-    return [];
+    const cacheEntry = { values: [], exactMap: new Map(), fuzzyBuckets: new Map() };
+    referenceValuesCache[field] = cacheEntry;
+    return cacheEntry;
   }
+}
+
+/**
+ * Gets all valid values for a reference field from the master tables
+ * @param {string} field - The field to get valid values for
+ * @returns {Promise<Array<{id: string, value: string}>>} Array of valid values with their IDs
+ */
+async function getValidReferenceValues(field) {
+  const { values } = await getReferenceCache(field);
+  return values;
 }
 
 /**
@@ -66,18 +103,20 @@ async function mapReferenceValue(field, value) {
     return { id: undefined, validValues: [], bestMatch: undefined };
   }
 
-  // Get all valid values for this field
-  const validValues = await getValidReferenceValues(field);
+  const valueStr = value.trim();
+  if (!valueStr) {
+    return { id: undefined, validValues: [], bestMatch: undefined };
+  }
+
+  const { values: validValues, exactMap, fuzzyBuckets } = await getReferenceCache(field);
 
   if (validValues.length === 0) {
     console.warn(`No valid ${field} values found in the database`);
     return { id: undefined, validValues: [], bestMatch: undefined };
   }
 
-  // First try exact case-insensitive match
-  const exactMatch = validValues.find(item =>
-    item.value.toLowerCase() === value.toLowerCase()
-  );
+  const normalizedValue = valueStr.toLowerCase();
+  const exactMatch = exactMap.get(normalizedValue);
 
   if (exactMatch) {
     return {
@@ -87,19 +126,25 @@ async function mapReferenceValue(field, value) {
     };
   }
 
-  // Try fuzzy matching - check if the input value contains any of the valid values or vice versa
-  for (const validValue of validValues) {
-    if (validValue.value.toLowerCase().includes(value.toLowerCase()) ||
-      value.toLowerCase().includes(validValue.value.toLowerCase())) {
-      return {
-        id: validValue.id,
-        validValues: validValues.map(v => v.value),
-        bestMatch: validValue.value
-      };
+  const primaryCandidates = fuzzyBuckets.get(normalizedValue[0] || '') || [];
+  const searchSpace = primaryCandidates.length > 0 ? primaryCandidates : validValues;
+
+  const fuzzyMatch = searchSpace.find(candidate => {
+    if (!candidate.normalizedValue) {
+      return false;
     }
+    return candidate.normalizedValue.includes(normalizedValue) ||
+      normalizedValue.includes(candidate.normalizedValue);
+  });
+
+  if (fuzzyMatch) {
+    return {
+      id: fuzzyMatch.id,
+      validValues: validValues.map(v => v.value),
+      bestMatch: fuzzyMatch.value
+    };
   }
 
-  // No match found
   return {
     id: undefined,
     validValues: validValues.map(v => v.value),
@@ -166,8 +211,7 @@ async function ensureMasterValuesExist(createMissing = false) {
     }
 
     // Clear the cache to reload values
-    referenceValuesCache.complianceStatus = null;
-    referenceValuesCache.PANStatus = null;
+    invalidateReferenceCache();
 
   } catch (error) {
     console.error('Error ensuring master values exist:', error);
@@ -259,18 +303,48 @@ function parseArrayField(value) {
  * @returns {Promise<ObjectId|null>} Mapped ObjectId or null if not found
  */
 async function mapReferenceField(field, value, rowNumber) {
-  const { id, validValues, bestMatch } = await mapReferenceValue(field, value.toString());
-
-  if (id) {
-    return id;
-  } else {
-    const fieldDisplay = field === 'complianceStatus' ? '206AB Compliance' : 'PAN Status';
-    const validOptionsMsg = validValues.length > 0
-      ? `Valid options are: ${validValues.join(', ')}`
-      : 'No valid options found in master table';
-
-    return null;
+  if (value === undefined || value === null) {
+    return undefined;
   }
+
+  const valueStr = value.toString().trim();
+  const { id, validValues, bestMatch } = await mapReferenceValue(field, valueStr);
+
+  if (!id) {
+    const location = rowNumber ? ` (row ${rowNumber})` : '';
+    const previewValues = validValues.slice(0, 10).join(', ');
+    const previewSuffix = validValues.length > 10 ? '...' : '';
+    console.warn(
+      `[Vendor Import] Unable to map ${field}${location} for value "${valueStr}". Valid options: ${previewValues}${previewSuffix}`
+    );
+  } else if (bestMatch && bestMatch.toLowerCase() !== valueStr.toLowerCase()) {
+    const location = rowNumber ? ` (row ${rowNumber})` : '';
+    console.info(
+      `[Vendor Import] Normalized ${field}${location} value "${valueStr}" to "${bestMatch}"`
+    );
+  }
+
+  return id;
+}
+
+async function normalizeVendorFieldValue(dbField, value, rowNumber) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (dbField === 'vendorNo') {
+    return parseVendorNumber(value, rowNumber);
+  }
+
+  if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
+    return parseArrayField(value);
+  }
+
+  if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
+    return mapReferenceField(dbField, value, rowNumber);
+  }
+
+  return value;
 }
 
 /**
@@ -282,26 +356,15 @@ async function mapReferenceField(field, value, rowNumber) {
 async function processVendorRowData(rowData, rowNumber) {
   const vendorData = {};
 
-  for (const [header, dbField] of Object.entries(VENDOR_HEADER_MAPPING)) {
-    if (rowData[header] !== undefined && rowData[header] !== null) {
-      let value = rowData[header];
+  for (const [header, dbField] of Object.entries(vendorHeaderMapping)) {
+    if (rowData[header] === undefined || rowData[header] === null) {
+      continue;
+    }
 
-      if (dbField === 'vendorNo') {
-        value = parseVendorNumber(value, rowNumber);
-      }
+    const normalizedValue = await normalizeVendorFieldValue(dbField, rowData[header], rowNumber);
 
-      if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
-        value = parseArrayField(value);
-      }
-
-      if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
-        const mappedId = await mapReferenceField(dbField, value, rowNumber);
-        if (mappedId) {
-          vendorData[dbField] = mappedId;
-        }
-      } else {
-        vendorData[dbField] = value;
-      }
+    if (normalizedValue !== undefined && normalizedValue !== null) {
+      vendorData[dbField] = normalizedValue;
     }
   }
 
