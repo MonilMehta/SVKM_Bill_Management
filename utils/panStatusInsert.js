@@ -10,7 +10,6 @@ async function insertPanStatuses() {
   await connectDB();
   await PanStatusMaster.deleteMany({});
   await PanStatusMaster.insertMany(panStatuses);
-  // console.log("PAN Status master data inserted.");
   mongoose.connection.close();
 }
 

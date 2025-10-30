@@ -62,7 +62,6 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   const { emailOrUsername, password } = req.body;
-  // console.log(emailOrUsername, password);
   try {
     const user = await User.findOne({
       $or: [{ email: emailOrUsername }, { username: emailOrUsername }],
@@ -73,14 +72,14 @@ export const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Invalid email/username or password" });
     }
-    // console.log(user);
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res
         .status(400)
         .json({ message: "Invalid email/username or password" });
     }
-    // console.log("Reached here");
+
     const token = generateToken(user._id);
 
     res.status(200).json({
@@ -230,7 +229,7 @@ export const forgotPassword = async (req, res) => {
       message: "Password reset code sent to your email",
     });
   } catch (error) {
-    // console.error("Error in forgotPassword:", error);
+    console.error("Error in forgotPassword:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -278,7 +277,7 @@ export const verifyResetCode = async (req, res) => {
       resetToken,
     });
   } catch (error) {
-    // console.error("Error in verifyResetCode:", error);
+    console.error("Error in verifyResetCode:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error, please try again",
@@ -348,7 +347,7 @@ export const resetPassword = async (req, res) => {
       message: "Password reset successfully",
     });
   } catch (error) {
-    // console.error("Error in resetPassword:", error);
+    console.error("Error in resetPassword:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error , generate a new reset code ",

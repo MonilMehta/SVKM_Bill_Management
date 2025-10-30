@@ -645,9 +645,8 @@ async function seedVendors() {
     await connectDB(); // Ensure you have a function to connect to your DB
     await VendorMaster.deleteMany({});
     await VendorMaster.insertMany(vendors);
-    // console.log("Vendors added successfully.");
   } catch (err) {
-    // console.error("Error adding vendors:", err);
+    console.error("Error adding vendors:", err);
   } finally {
     await mongoose.connection.close();
   }

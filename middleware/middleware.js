@@ -155,7 +155,7 @@ export const validateWorkflowTransition = async (req, res, next) => {
     // Allow reject/recover for all roles at their step
     next();
   } catch (error) {
-    // console.error('Workflow validation error:', error);
+    console.error('Workflow validation error:', error);
     res.status(500).json({ success: false, message: 'Error validating workflow transition', error: error.message });
   }
 };
@@ -258,7 +258,7 @@ export const validateTeamFieldAccess = (req, res, next) => {
     
     next();
   } catch (error) {
-    // console.error('Field access validation error:', error);
+    console.error('Field access validation error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Error validating field access', 

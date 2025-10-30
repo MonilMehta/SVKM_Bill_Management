@@ -62,7 +62,7 @@ app.use("/health", (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    // console.error(err.stack);
+    console.error(err.stack);
 
     if (err.name === "MulterError") {
         return res.status(400).json({
@@ -79,7 +79,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(port, () => {
-    // console.log(`Server is listening on port ${port}`);
+    console.log(`Server is listening on port ${port}`);
 });
 
 export default app;

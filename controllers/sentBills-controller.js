@@ -88,7 +88,7 @@ export const getBillsAboveLevel = async (req, res) => {
       data: mappedBills,
     });
   } catch (error) {
-    // console.error("Error fetching bills above level:", error);
+    console.error("Error fetching bills above level:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch bills above level",

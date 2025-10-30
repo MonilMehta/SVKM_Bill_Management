@@ -24,7 +24,7 @@ export async function sendMail(to, subject, body) {
 
     return { success: true, message: "Email sent successfully" };
   } catch (error) {
-    // console.error("Error sending email:", error);
+    console.error("Error sending email:", error);
 
     return { success: false, message: error.message || "Failed to send email" };
   }

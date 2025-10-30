@@ -19,12 +19,12 @@ const shouldSkipVendorValidation = async () => {
     if (!VendorMaster) return true;
 
     const count = await VendorMaster.countDocuments();
-    // console.log(`Found ${count} vendors in database`);
+
 
     // If empty vendor table, skip validation
     return count === 0;
   } catch (error) {
-    // console.error('Error checking vendor count:', error);
+    console.error('Error checking vendor count:', error);
     return true; // Skip validation on error
   }
 };
@@ -83,7 +83,7 @@ const generateReport = async (req, res) => {
     res.setHeader("Content-Length", fileBuffer.length);
     return res.send(fileBuffer);
   } catch (error) {
-    // console.error('Report generation error:', error);
+    console.error('Report generation error:', error);
     return res.status(500).json({
       success: false,
       message: "Failed to generate report",
@@ -110,11 +110,7 @@ const upload = multer({
     const extname = validExtensions.test(path.extname(file.originalname).toLowerCase());
     const mimetype = validExcelMimeTypes.includes(file.mimetype);
 
-    // console.log('File details:', {
-    //   originalname: file.originalname,
-    //   mimetype: file.mimetype,
-    //   extname: path.extname(file.originalname).toLowerCase()
-    // });
+
 
     if (extname || mimetype) {
       return cb(null, true);
@@ -153,18 +149,15 @@ const importBills = async (req, res) => {
 
     // Check if we're in patch-only mode (don't create new bills)
     const patchOnly = req.query.patchOnly === 'true';
-    // console.log(`Import mode: ${patchOnly ? 'patch-only' : 'normal'}`);
+
 
     const uploadedFile = req.files[0]; // Get the first uploaded file
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, uploadedFile.originalname);
-    // console.log(`Processing file: ${uploadedFile.originalname}`);
 
     // Check if we should skip vendor validation
     const skipVendorValidation = await shouldSkipVendorValidation();
-    if (skipVendorValidation) {
-      // console.log('SKIPPING VENDOR VALIDATION - Vendor table is empty or not accessible');
-    }
+    
 
     // Extract vendor numbers from Excel/CSV before processing
     // This allows us to validate vendors first
@@ -216,9 +209,9 @@ const importBills = async (req, res) => {
 
           // Extract vendor numbers and names for reference
           if (vendorNoColIdx > 0) {
-            // console.log(`Found Vendor no column at index ${vendorNoColIdx}`);
+   
             if (vendorNameColIdx > 0) {
-              // console.log(`Found Vendor Name column at index ${vendorNameColIdx}`);
+              
             }
 
             worksheet.eachRow((row, rowNumber) => {
@@ -230,7 +223,7 @@ const importBills = async (req, res) => {
               }
             });
           } else {
-            // console.log('Could not find Vendor no column in Excel file');
+
           }
         }
 
@@ -238,10 +231,10 @@ const importBills = async (req, res) => {
         try {
           // Count total vendors in database first
           const totalVendorsInDB = await VendorMaster.countDocuments();
-          // console.log(`Total vendors in database: ${totalVendorsInDB}`);
+   
 
           if (totalVendorsInDB === 0) {
-            // console.log('WARNING: Vendor table is empty, skipping vendor validation');
+
             skipVendorValidation = true;
           } else {
             // Get all vendors to validate by name
@@ -250,33 +243,24 @@ const importBills = async (req, res) => {
 
             // Extract vendor names for validation
             validVendorNames = allVendors.map(v => v.vendorName || '');
-            // console.log(`Found ${validVendorNames.length} valid vendor names in the database`);
+          
 
-            if (validVendorNames.length > 0) {
-              // console.log(`Sample vendor names: ${validVendorNames.slice(0, 5).join(', ')}${validVendorNames.length > 5 ? '...' : ''}`);
-            }
+            
 
             if (validVendorNames.length === 0) {
-              // console.log('WARNING: No vendor names found in the database!');
-
               // Try to get a sample of vendors to debug
               const sampleVendors = await VendorMaster.find().limit(5).lean();
-              // console.log(`Sample vendors in DB:`, sampleVendors.map(v => ({
-              //   vendorNo: v.vendorNo,
-              //   vendorName: v.vendorName || 'N/A'
-              // })));
             }
           }
         } catch (findError) {
-          // console.error('Error querying VendorMaster collection:', findError);
+          console.error('Error querying VendorMaster collection:', findError);
           skipVendorValidation = true;
         }
       } catch (error) {
-        // console.error('Error pre-validating vendors:', error);
+        console.error('Error pre-validating vendors:', error);
         skipVendorValidation = true;
       }
-    } else {
-      // console.log('VendorMaster model not available or validation skipped, skipping vendor validation');
+    } else {;
       skipVendorValidation = true;
     }
 
@@ -288,7 +272,7 @@ const importBills = async (req, res) => {
       // Pass the valid vendor list to the import function only if validation is enabled
       // Now we pass vendor names instead of vendor numbers
       const validVendorList = skipVendorValidation ? [] : validVendorNames;
-      // console.log(`Passing ${validVendorList.length} valid vendor names to import function`);
+
 
       if (fileExtension === '.csv') {
         // For CSV files, we don't support patch-only mode yet
@@ -400,7 +384,7 @@ const importBills = async (req, res) => {
       }
     });
   } catch (error) {
-    // console.error('Import error:', error);
+    console.error('Import error:', error);
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to import bills",
@@ -412,7 +396,7 @@ const importBills = async (req, res) => {
 // Function to patch bills from Excel/CSV without creating new records
 const patchBillsFromExcel = async (req, res) => {
   try {
-    // console.log('[PATCH DEBUG] patchBillsFromExcel called');
+
     await new Promise((resolve, reject) => {
       upload(req, res, (err) => {
         if (err instanceof multer.MulterError) {
@@ -468,7 +452,7 @@ const patchBillsFromExcel = async (req, res) => {
     const uploadedFile = req.files[0];
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, uploadedFile.originalname);
-    // console.log(`Processing file for patch: ${uploadedFile.originalname} by team: ${teamName || 'unrestricted'}`);
+    
     fs.writeFileSync(tempFilePath, uploadedFile.buffer);
 
     // Call the patch logic with team name
@@ -499,7 +483,7 @@ const patchBillsFromExcel = async (req, res) => {
       details: patchResult
     });
   } catch (error) {
-    // console.error('Patch error:', error);
+    console.error('Patch error:', error);
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to patch bills",
@@ -535,7 +519,6 @@ const importVendors = async (req, res) => {
     const uploadedFile = req.files[0];
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, uploadedFile.originalname);
-    // console.log(`Processing vendor import file: ${uploadedFile.originalname}`);
 
     // Check file extension
     const fileExtension = path.extname(uploadedFile.originalname).toLowerCase();
@@ -571,11 +554,9 @@ const importVendors = async (req, res) => {
         foundHeaders: headers
       });
     }
-    
-    // console.log("Before function call");
-    const importResult = await insertVendorsFromExcel(tempFilePath);
-    // console.log("After function call");
 
+    const importResult = await insertVendorsFromExcel(tempFilePath);
+  
     if (fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
     }
@@ -597,7 +578,7 @@ const importVendors = async (req, res) => {
       details: importResult
     });
   } catch (error) {
-    // console.error('Vendor import error:', error);
+    console.error('Vendor import error:', error);
     return res.status(400).json({
       success: false,
       message: 'Error importing vendors',
@@ -633,7 +614,6 @@ const updateVendorCompliance = async (req, res) => {
     const uploadedFile = req.files[0];
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, uploadedFile.originalname);
-    // console.log(`Processing vendor compliance update file: ${uploadedFile.originalname}`);
 
     // Check file extension
     const fileExtension = path.extname(uploadedFile.originalname).toLowerCase();
@@ -718,7 +698,7 @@ const updateVendorCompliance = async (req, res) => {
       }
     });
   } catch (error) {
-    // console.error('Vendor compliance update error:', error);
+    console.error('Vendor compliance update error:', error);
     return res.status(400).json({
       success: false,
       message: 'Error updating vendor compliance',
