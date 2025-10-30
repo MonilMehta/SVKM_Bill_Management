@@ -35,14 +35,14 @@ export const getOutstandingBillsReport = async (req, res) => {
       filter["vendorName"] = vendor;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
+
 
     // Fetch outstanding bills from database, and populate vendor
     const outstandingBills = await Bill.find(filter)
       .sort({ vendorName: 1, taxInvDate: 1 })
       .populate("vendor");
 
-    console.log(`Found ${outstandingBills.length} outstanding bills`);
+
 
     // Group bills by vendor name
     const vendorGroups = {};
@@ -237,7 +237,6 @@ export const getInvoicesReceivedAtSite = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
 
     // Fetch invoices received at site from database and populate vendor
     const invoicesReceivedAtSite = await Bill.find(filter)
@@ -245,9 +244,6 @@ export const getInvoicesReceivedAtSite = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesReceivedAtSite.length} invoices received at site`
-    );
 
     let reportData = [];
 
@@ -334,16 +330,13 @@ export const getInvoicesReceivedAtPIMOMumbai = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
 
     const invoicesReceivedAtMumbai = await Bill.find(filter)
       .sort({ "pimoMumbai.dateReceived": -1 })
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesReceivedAtMumbai.length} invoices received at Mumbai but not sent to accounts department`
-    );
+ 
     let reportData = [];
 
     // Format date strings properly
@@ -430,7 +423,6 @@ export const getInvoicesCourierToPIMOMumbai = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
 
     // Fetch invoices couriered to Mumbai from database and populate vendor
     const invoicesCourierToMumbai = await Bill.find(filter)
@@ -438,9 +430,6 @@ export const getInvoicesCourierToPIMOMumbai = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesCourierToMumbai.length} invoices couriered to Mumbai`
-    );
 
     let reportData = [];
 
@@ -520,7 +509,7 @@ export const getInvoicesGivenToAcctsDept = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
+
 
     // Fetch invoices given to accounts department from database and populate vendor
     const invoicesGivenToAcctsDept = await Bill.find(filter)
@@ -528,9 +517,7 @@ export const getInvoicesGivenToAcctsDept = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesGivenToAcctsDept.length} invoices given to accounts department`
-    );
+
 
     let reportData = [];
     // Format date strings properly
@@ -613,14 +600,11 @@ export const getInvoicesPaid = async (req, res) => {
       filter["f110Identification"] = f110Identification;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
 
     // Fetch bills from database, sort by vendor name first, then by sr no
     const invoices = await Bill.find(filter)
       .sort({ "accountsDept.paymentDate": 1 })
       .populate("vendor");
-
-    console.log(`Found ${invoices.length} invoices Paid`);
 
     let reportData = [];
 
@@ -718,15 +702,12 @@ export const getInvoicesGivenToQsSite = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2)); // Fetch invoices given to QS site from database and populate vendor
     const invoicesGivenToQsSite = await Bill.find(filter)
       .sort({ "qsMeasurementCheck.dateGiven": 1 })
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesGivenToQsSite.length} invoices given to QS site`
-    );
+  
 
     let reportData = [];
 
@@ -809,15 +790,12 @@ export const getInvoicesAtQSforProvCOP = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2)); // Fetch invoices given to QS site from database and populate vendor
     const invoicesGivenToQsCOP = await Bill.find(filter)
       .sort({ "qsCOP.dateGiven": -1 })
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesGivenToQsCOP.length} invoices given to QS for COP`
-    );
+
 
     let reportData = [];
 
@@ -898,15 +876,11 @@ export const getInvoicesAtQSMumbai = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2)); // Fetch invoices given to QS site from database and populate vendor
     const invoicesAtQsMumbai = await Bill.find(filter)
       .sort({ "qsCOP.dateGiven": -1 })
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesAtQsMumbai.length} invoices given to QS for COP`
-    );
 
     let reportData = [];
 
@@ -989,7 +963,6 @@ export const getInvoicesReturnedByQsSite = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
 
     // Fetch invoices couriered to Mumbai from database and populate vendor
     const invoicesReturnedFromQsMeasurement = await Bill.find(filter)
@@ -997,9 +970,7 @@ export const getInvoicesReturnedByQsSite = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesReturnedFromQsMeasurement.length} invoices couriered to Mumbai`
-    );
+ 
 
     let reportData = [];
 
@@ -1082,7 +1053,7 @@ export const getInvoicesReturnedByQsCOP = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
+
 
     // Fetch invoices couriered to Mumbai from database and populate vendor
     const invoicesReturnedFromQsCOP = await Bill.find(filter)
@@ -1090,9 +1061,6 @@ export const getInvoicesReturnedByQsCOP = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesReturnedFromQsCOP.length} invoices couriered to Mumbai`
-    );
 
     let reportData = [];
 
@@ -1173,7 +1141,7 @@ export const getInvoicesReturnedByQSMumbai = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
+
 
     // Fetch invoices couriered to Mumbai from database and populate vendor
     const invoicesReturnedFromQsMumbai = await Bill.find(filter)
@@ -1181,9 +1149,6 @@ export const getInvoicesReturnedByQSMumbai = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-    console.log(
-      `Found ${invoicesReturnedFromQsMumbai.length} invoices couriered to Mumbai`
-    );
 
     let reportData = [];
 
@@ -1270,14 +1235,14 @@ export const getPendingBillsReport = async (req, res) => {
       filter["region"] = region;
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
+
 
     // Fetch bills from database, sort by vendor name first, then by sr no
     const pendingBills = await Bill.find(filter)
       .sort({ vendorName: 1, srNo: 1 })
       .populate("vendor");
 
-    console.log(`Found ${pendingBills.length} pending bills`);
+
 
     // Group bills by vendor name
     const vendorGroups = {};
@@ -1415,9 +1380,9 @@ export const getBillJourney = async (req, res) => {
     // Build filter object - start with an empty filter to see if any bills exist
     const filter = {};
 
-    console.log("Initial query with empty filter to check database contents");
+
     const totalCount = await Bill.countDocuments({});
-    console.log(`Total bills in database: ${totalCount}`);
+
 
     // Check if dates are provided and valid before adding to filter
     if (startDate && endDate) {
@@ -1432,12 +1397,7 @@ export const getBillJourney = async (req, res) => {
             $gte: parsedStartDate,
             $lte: endOfDay(endDate),
           };
-          console.log(
-            `Using date range: ${parsedStartDate.toISOString()} to ${parsedEndDate.toISOString()}`
-          );
-        } else {
-          console.log(`Invalid dates provided: ${startDate}, ${endDate}`);
-        }
+        } 
       } catch (dateError) {
         console.error("Date parsing error:", dateError);
         // Continue without date filter if there's an error
@@ -1447,36 +1407,25 @@ export const getBillJourney = async (req, res) => {
     // Add region filter if provided
     if (region) {
       filter["region"] = region;
-      console.log(`Using region filter: ${region}`);
     }
 
     // Add vendor filter if provided
     if (vendorName) {
       filter["vendorName"] = vendorName;
-      console.log(`Using vendor filter: ${vendorName}`);
     }
 
-    console.log("Filter being used:", JSON.stringify(filter, null, 2));
+
 
     // Debug database schema - get first bill to check field names
     const sampleBill = await Bill.findOne({});
-    if (sampleBill) {
-      console.log("Sample bill document fields:", Object.keys(sampleBill._doc));
-      console.log("Sample taxInvDate value:", sampleBill.taxInvDate);
-    } else {
-      console.log("No bills found in database at all");
-    }
+    
 
     // Fetch bills from database, sort by sr no
     const bills = await Bill.find(filter).sort({ srNo: 1 }).populate("vendor");
 
-    console.log(
-      `Found ${bills.length} bills for journey report after applying filters`
-    );
 
     // If no bills found, try a more relaxed query
     if (bills.length === 0 && (startDate || endDate || region || vendorName)) {
-      console.log("No bills found with filters, trying more relaxed query...");
       // Try just the date filter without other constraints
       const relaxedFilter = {};
       if (startDate && endDate) {
@@ -1492,18 +1441,11 @@ export const getBillJourney = async (req, res) => {
       const relaxedBills = await Bill.find(relaxedFilter)
         .limit(10)
         .populate("vendor");
-      console.log(`Found ${relaxedBills.length} bills with relaxed query`);
+
 
       if (relaxedBills.length > 0) {
         // If we found bills with the relaxed query, check if they have the expected fields
         const sampleBill = relaxedBills[0];
-        console.log("Sample bill with relaxed query:", {
-          id: sampleBill._id,
-          srNo: sampleBill.srNo,
-          region: sampleBill.region,
-          taxInvDate: sampleBill.taxInvDate,
-          vendorName: sampleBill.vendorName,
-        });
       }
     }
 

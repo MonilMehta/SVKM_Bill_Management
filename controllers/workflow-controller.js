@@ -200,43 +200,30 @@ export const changeBatchWorkflowState = async (req, res) => {
               });
               continue;
             } else {
-              console.log(
-                `Forwarding bill ${billId} to Quality Inspector from Site Officer`
-              );
+           
               setObj["qualityEngineer.dateGiven"] = now;
               setObj["qualityEngineer.name"] = toName;
             }
           } else if (toRoleArray.includes("qs_measurement")) {
-            console.log(
-              `Forwarding bill ${billId} to Quantity Surveyor for Measurement from Site Officer`
-            );
+         
             setObj["qsInspection.dateGiven"] = now;
             setObj["qsInspection.name"] = toName;
             setObj["maxCount"] = Math.max(billFound.maxCount, 2);
             setObj["currentCount"] = 2;
           } else if (toRoleArray.includes("qs_cop")) {
-            console.log(
-              `Forwarding bill ${billId} to Quantity Surveyor for COP from Site Officer`
-            );
+    
             setObj["qsCOP.dateGiven"] = now;
             setObj["qsCOP.name"] = toName;
             setObj["maxCount"] = Math.max(billFound.maxCount, 2);
             setObj["currentCount"] = 2;
           } else if (toRoleArray.includes("migo_entry")) {
-            console.log(
-              `Forwarding bill ${billId} to MIGO ENtry from Site Officer`
-            );
+  
             setObj["migoDetails.dateGiven"] = now;
             // setObj["migoDetails.doneBy"] = toName ? toName : "";
           } else if (toRoleArray.includes("migo_entry_return")) {
-            console.log(
-              `Forwarding bill ${billId} to MIGO ENtry from Site Officeraa`
-            );
+        
             setObj["invReturnedToSite"] = now;
           } else if (toRoleArray.includes("site_engineer")) {
-            console.log(
-              `Forwarding bill ${billId} to Site Engineer from Site Officer`
-            );
             setObj["siteEngineer.dateGiven"] = now;
             setObj["siteEngineer.name"] = toName;
           } else if (toRoleArray.includes("site_architect")) {
@@ -247,22 +234,14 @@ export const changeBatchWorkflowState = async (req, res) => {
               });
               continue;
             } else {
-              console.log(
-                `Forwarding bill ${billId} to Site Architect from Site Officer`
-              );
               setObj["architect.dateGiven"] = now;
               setObj["architect.name"] = toName;
             }
           } else if (toRoleArray.includes("site_incharge")) {
-            console.log(
-              `Forwarding bill ${billId} to Site Incharge from Site Officer`
-            );
+
             setObj["siteIncharge.dateGiven"] = now;
             setObj["siteIncharge.name"] = toName;
           } else if (toRoleArray.includes("site_dispatch_team")) {
-            console.log(
-              `Forwarding bill ${billId} to Site Dispatch Team from Site Officer`
-            );
             setObj["siteOfficeDispatch.name"] = toName;
             setObj["siteOfficeDispatch.dateGiven"] = now;
           }
@@ -279,9 +258,7 @@ export const changeBatchWorkflowState = async (req, res) => {
           fromRoleArray.includes("site_team") &&
           toRoleArray.includes("pimo_mumbai")
         ) {
-          console.log(
-            `Forwarding bill ${billId} to PIMO Mumbai from Site Officer`
-          );
+
           billWorkflow = await Bill.findByIdAndUpdate(
             billId,
             {
@@ -358,7 +335,6 @@ export const changeBatchWorkflowState = async (req, res) => {
             toRoleArray.includes("accounts_department"))
         ) {
           if (toRoleArray.includes("qs_mumbai")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -384,7 +360,6 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("it_team")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -410,7 +385,6 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("ses_team")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -426,7 +400,6 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("it_return_team")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -441,7 +414,6 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("ses_return_team")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -456,7 +428,6 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("trustee")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -471,7 +442,6 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("accounts_department")) {
-            console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
@@ -490,7 +460,6 @@ export const changeBatchWorkflowState = async (req, res) => {
           fromRoleArray.includes("trustee") &&
           toRoleArray.includes("pimo_mumbai")
         ) {
-          console.log(` bill ${billId} to QS Mumbai from PIMO Mumbai`);
           billWorkflow = await Bill.findByIdAndUpdate(
             billId,
             {
@@ -509,7 +478,6 @@ export const changeBatchWorkflowState = async (req, res) => {
           fromRoleArray.includes("accounts") && 
           toRoleArray.includes("booking_checking")
         ) {
-          console.log(` bill ${billId} to Booking & Checking from Accounts`);
           billWorkflow = await Bill.findByIdAndUpdate(
             billId,
             {
