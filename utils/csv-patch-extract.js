@@ -459,7 +459,7 @@ async function processPatchRow(rowData, rowNumber, allowedFields, updateSummary,
     return { updated: false, reason: 'bill_not_found' };
   }
 
-  const billData = bill.toObject();
+  const billData = typeof bill.toObject === 'function' ? bill.toObject() : bill;
   const updateObj = initializeUpdateObject(billData);
   let hasUpdate = false;
 

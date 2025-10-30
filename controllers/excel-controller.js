@@ -44,6 +44,29 @@ const shouldSkipVendorValidation = async () => {
   }
 };
 
+const resolveImportCount = (value) => {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.count === 'number' && Number.isFinite(value.count)) {
+      return value.count;
+    }
+
+    if (typeof value.length === 'number' && Number.isFinite(value.length)) {
+      return value.length;
+    }
+  }
+
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue)) {
+    return Math.max(0, numericValue);
+  }
+
+  return 0;
+};
+
 const generateReport = async (req, res) => {
   try {
     const { billIds, format = 'excel' } = req.body;
@@ -339,8 +362,8 @@ const importBills = async (req, res) => {
         toastMessage: `Import completed but ${uniqueInvalidVendors.length} vendor(s) were skipped`,
         data: {
           summary: {
-            inserted: importResult.inserted?.length || 0,
-            updated: importResult.updated?.length || 0,
+            inserted: resolveImportCount(importResult.inserted),
+            updated: resolveImportCount(importResult.updated),
             skipped: importResult.nonExistentVendors.length,
             totalVendors,
             validVendors: validVendorNames.length,
@@ -367,8 +390,8 @@ const importBills = async (req, res) => {
         toastMessage: `${importResult.alreadyExistingBills.length} bill(s) already exist. Use update option instead`,
         data: {
           summary: {
-            inserted: importResult.inserted?.length || 0,
-            updated: importResult.updated?.length || 0,
+            inserted: resolveImportCount(importResult.inserted),
+            updated: resolveImportCount(importResult.updated),
             alreadyExisting: importResult.alreadyExistingBills.length,
             totalProcessed: importResult.totalProcessed
           }
@@ -389,16 +412,10 @@ const importBills = async (req, res) => {
     }
 
     // Return success response with clearer formatting info
-    const insertedCount = Array.isArray(importResult.inserted)
-      ? importResult.inserted.length
-      : importResult.inserted || 0;
-    const updatedCount = Array.isArray(importResult.updated)
-      ? importResult.updated.length
-      : importResult.updated || 0;
-    const skippedCount = importResult.skipped || 0;
-    const errorCount = Array.isArray(importResult.errors)
-      ? importResult.errors.length
-      : importResult.errors || 0;
+    const insertedCount = resolveImportCount(importResult.inserted);
+    const updatedCount = resolveImportCount(importResult.updated);
+    const skippedCount = resolveImportCount(importResult.skipped);
+    const errorCount = resolveImportCount(importResult.errors);
 
     return sendSuccess(res, 200, {
       message: importResult.message || `Successfully processed ${importResult.totalProcessed || 0} bills`,
