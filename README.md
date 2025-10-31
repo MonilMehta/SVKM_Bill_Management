@@ -1,67 +1,149 @@
 # SVKM Bill Management System
 
-A comprehensive bill management system with workflow capabilities for tracking and managing bills through various stages of approval.
+[![Star History Chart](https://api.star-history.com/svg?repos=MonilMehta/SVKM_Bill_Management&type=Date)](https://star-history.com/#MonilMehta/SVKM_Bill_Management&Date)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+An Express + MongoDB platform that digitizes SVKM's bill lifecycle: from invoice capture and multi-stage approvals to analytics, reporting, and archival.
 
-- **Bill Management**: Create, update, and track bills throughout their lifecycle
-- **Workflow System**: Configurable approval workflow with role-based permissions
-- **Vendor Management**: Validate and track vendors for each bill
-- **Import/Export**: Import bills from Excel and CSV files with data validation
-- **Authentication**: JWT-based authentication with role-based access control
-- **Workflow Dashboard**: Analytics and reporting on bill processing efficiency
-- **Audit Trail**: Complete history tracking of all bill transitions
+## Table of Contents
+- [Overview](#overview)
+- [Key Capabilities](#key-capabilities)
+- [Architecture Highlights](#architecture-highlights)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Available npm Scripts](#available-npm-scripts)
+- [Roles and Access](#roles-and-access)
+- [File Operations](#file-operations)
+- [API Surface](#api-surface)
+- [Integrations](#integrations)
+- [Troubleshooting](#troubleshooting)
+- [Additional Resources](#additional-resources)
 
-## Workflow Features
+## Overview
 
-The system implements a robust workflow engine that tracks bills through various states:
+Finance teams, site engineers, and approvers rely on this service to submit, validate, approve, and pay vendor invoices. Each bill flows through a configurable workflow, capturing metadata, audit history, SLA metrics, and supporting documents. The backend exposes REST APIs that power an internal React front end and feeds downstream analytics.
 
-1. **State Transitions**: Bills move through predefined states (e.g., Draft, Pending Approval, Approved, Payment Initiated, Completed)
-2. **Role-Based Actions**: Different user roles can perform specific actions on bills in certain states
-3. **Performance Metrics**: Track processing time for each state and user performance
-4. **Audit Trail**: All transitions are logged with timestamp, actor, and comments
-5. **Rejection Handling**: Support for rejecting bills with reason, sending them back to previous stages
-6. **Dashboard Analytics**: Visual representation of workflow efficiency and bottlenecks
+## Key Capabilities
+- Multi-level bill workflow with state transitions, rejection handling, and audit trails.
+- Role-aware access control using JWT authentication and custom middleware.
+- Vendor, region, nature-of-work, currency, and taxation master data management.
+- CSV and Excel import/export with server-side validation and S3-backed document storage.
+- KPI dashboards, workflow stats, and reporting endpoints for process insight.
+- Attachment management, Excel/CSV tooling, and archival-ready exports.
 
-## API Endpoints
+## Architecture Highlights
+- **API Layer:** `Express` application (`index.js`) wires routes, middleware, and request validation.
+- **Data Layer:** `Mongoose` models under `models/` define bills, workflows, users, masters, and audit entities.
+- **Workflow Engine:** Controllers in `controllers/` orchestrate state transitions, role permissions, and metrics.
+- **Security:** JWT auth (`middleware/middleware.js`) with reset-token support and cookie handling.
+- **Storage:** MongoDB for transactional data, AWS S3 for attachments, and optional PDF output via `pdfkit`.
+- **Observability:** Health checks at `/health`, structured logging, KPI/stats routes for dashboards.
 
-### Authentication
-- `POST /api/auth/register`: Register a new user
-- `POST /api/auth/login`: User login
-- `GET /api/auth/me`: Get current user profile
-- `PUT /api/auth/password`: Update password
+## Project Structure
 
-### Bills
-- `GET /api/bills`: Get all bills (with filtering)
-- `POST /api/bills`: Create a new bill
-- `GET /api/bills/:id`: Get a single bill
-- `PUT /api/bills/:id`: Update a bill
-- `DELETE /api/bills/:id`: Delete a bill
-- `POST /api/bills/import/csv`: Import bills from CSV
-- `POST /api/bills/import/excel`: Import bills from Excel
-- `GET /api/bills/export`: Export bills to Excel
+```
+SVKM_Bill_Management/
+├── index.js                 # Express app bootstrap, routing, middleware
+├── controllers/             # Business logic for bills, workflow, reports, auth, users, vendors
+├── middleware/              # JWT auth, role guards, error helpers
+├── models/                  # Mongoose schemas for bills, workflow steps, masters, users, roles
+├── routes/                  # API route definitions grouped by domain
+├── utils/                   # DB connector, S3 helpers, CSV/Excel tooling, mailer, API schema config
+├── constants/               # Role-to-workflow mappings and field access configuration
+├── tasks.md                 # Detailed bill processing playbook and role access reference
+├── package.json             # Dependencies and npm scripts
+└── README.md
+```
 
-### Workflow
-- `GET /api/workflow/stats`: Get workflow dashboard statistics
-- `GET /api/workflow/bill/:billId/history`: Get workflow history for a bill
-- `GET /api/workflow/user/:userId/activity`: Get user workflow activity
-- `GET /api/workflow/performance/roles`: Get role performance metrics
+## Getting Started
 
-## Setup
+1. **Prerequisites**
+	- Node.js 18+
+	- MongoDB cluster or Atlas connection string
+		- AWS S3 bucket (for file uploads)
+2. **Clone & Install**
+	```bash
+	git clone https://github.com/MonilMehta/SVKM_Bill_Management.git
+	cd SVKM_Bill_Management
+	npm install
+	```
+3. **Configure Environment**
+	- Create `dev.env` (see variables below) and copy to `.env`.
+	- Ensure IP allowlists for MongoDB and S3 credentials are active.
+4. **Run Locally**
+	```bash
+	npm run dev
+	```
+ The server defaults to `http://localhost:5000`.
 
-1. Clone the repository
-2. Copy `.env.example` to `.env` and configure your environment variables
-3. Install dependencies: `npm install`
-4. Start the development server: `npm run dev`
+## Environment Variables
 
-## Technologies
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PORT` | HTTP server port (defaults to 5000) | `5000` |
+| `MONGODB_URI` | MongoDB connection string | `mongodb+srv://user:pass@cluster/db` |
+| `JWT_SECRET` | Primary JWT signing key | `super-secret` |
+| `JWT_EXPIRE` | JWT lifetime for model methods | `10h` |
+| `RESET_PASSWORD_JWT_SECRET` | Token secret for password reset flows | `reset-secret` |
+| `S3_REGION` | AWS region for S3 operations | `ap-south-1` |
+| `S3_BUCKET_NAME` | Bucket for attachments | `svkm-bills` |
+| `S3_ACCESS_KEY_ID` | AWS access key | `AKIA...` |
+| `S3_SECRET_ACCESS_KEY` | AWS secret key | `abc123` |
+| `NODE_ENV` | `development` or `production` (affects error responses) | `development` |
 
-- Backend: Node.js, Express.js
-- Database: MongoDB with Mongoose
-- Authentication: JWT
-- Data Processing: ExcelJS, csv-parser
-- Frontend (separate repo): React with Material-UI
+> Tip: keep credentials out of version control and rotate secrets periodically.
 
-## License
+## Available npm Scripts
 
-MIT
+- `npm run dev` – Start the server with `nodemon` for hot reload during development.
+- `npm start` – Launch the production build with Node.
+
+## Roles and Access
+
+The system supports the following user roles:
+
+- Site Team
+- Quality Engineer
+- Quantity Surveyor (QS)
+- Site Engineer
+- Site In-charge
+- PIMO Team
+- QS Mumbai
+- IT Department
+- Directors / Advisors / Trustees
+- Accounts Department
+
+## File Operations
+
+- **Attachment Handling:** Uploaded documents are stored via AWS S3 using helpers in `utils/s3.js`. Files are versioned with timestamped keys for traceability.
+- **Bulk Imports:** Controllers under `routes/excel-route.js` and `routes/bill-route.js` accept CSV and Excel payloads. Validation errors are aggregated per row to ease correction cycles.
+- **Bulk Exports:** Finance teams can pull filtered bill datasets and reports using `/bill/export` and `/api/reports` endpoints, powered by `exceljs` and `json2csv`.
+- **Archival Support:** Utility scripts in `utils/` (e.g., `csv-patch.js`, `vendor-csv-utils.js`) streamline data hygiene and master-data updates across environments.
+
+## API Surface
+
+- **Auth** (`/auth`): register, login, password update, session management.
+- **Bills & Workflow** (`/bill`, `/workflow`, `/sentBills`, `/kpi`, `/stats`): CRUD operations, workflow history, KPI dashboards.
+- **Masters** (`/master`, `/vendors`, `/users`, `/role`): manage reference data, user roles, and vendor onboarding.
+- **Reporting** (`/api/reports`): export-ready datasets for finance and compliance.
+- **File Operations** (`/excel`, `/bill/import`): CSV/Excel ingestion, template downloads, export endpoints.
+
+## Integrations
+
+- **CSV/Excel Tooling:** `/excel` routes and utilities handle ingestion, patching, and regeneration of spreadsheets.
+- **AWS S3:** `utils/s3.js` encapsulates upload/delete operations; grant IAM permissions for `PutObject`, `GetObject`, and `DeleteObject` on the target bucket.
+- **PDF Generation:** `pdfkit` support enables downstream creation of invoice summaries or approval packs.
+
+## Troubleshooting
+
+- **Mongo Connection Issues**: Verify `MONGODB_URI` and network allowlist. The server logs connection status on startup.
+- **JWT Errors**: Ensure `JWT_SECRET` and `RESET_PASSWORD_JWT_SECRET` are defined; tokens issued prior to rotation become invalid.
+- **File Upload Failures**: Multer errors surface as `File upload error` responses. Check file size limits, allowed MIME types, and S3 credentials.
+- **CORS Problems**: Update the allowed origins array in `index.js` to match your front-end domain.
+
+## Additional Resources
+
+- Front-end client (React + Material UI): request access to the dedicated repository.
+
+License: MIT
