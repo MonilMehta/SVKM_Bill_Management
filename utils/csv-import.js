@@ -40,7 +40,7 @@ async function loadMasterData() {
     PanStatusMaster.find().lean(),
     ComplianceMaster.find().lean()
   ]);
-  
+
   return { vendors, regions, currencies, natureOfWork, panStatuses, compliance };
 }
 
@@ -54,16 +54,16 @@ async function readExcelWorkbook(filePath) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
   const worksheet = workbook.getWorksheet(1);
-  
+
   if (!worksheet) {
     throw new Error("No worksheet found in the Excel file");
   }
-  
+
   const headers = [];
   worksheet.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
     headers[colNumber - 1] = cell.value?.toString().trim();
   });
-  
+
   return { worksheet, headers };
 }
 
@@ -77,38 +77,38 @@ async function readExcelWorkbook(filePath) {
 function extractRowData(row, headers, rowNumber) {
   const billData = {};
   let srNo = null;
-  
+
   row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const header = headers[colNumber - 1];
     if (!header) return;
-    
+
     const fieldName = headerMapping[header];
     if (!fieldName) return;
-    
+
     let value = cell.value;
-    
+
     if (cell.type === ExcelJS.ValueType.Date) {
       value = cell.value;
     } else if (typeof value === 'object' && value !== null) {
       value = value.text || value.result || value.toString();
     }
-    
+
     if (fieldName?.toLowerCase().includes('date') && value) {
       value = parseDate(value);
       if (value instanceof Date && !isNaN(value.getTime())) {
         value = new Date(value.getFullYear(), value.getMonth(), value.getDate(), 0, 0, 0, 0);
       }
     }
-    
+
     if (fieldName?.toLowerCase().includes('amt') && typeof value === 'string') {
       value = parseFloat(value.replace(/,/g, ''));
       if (isNaN(value)) value = 0;
     }
-    
+
     if (fieldName === 'srNo') {
       srNo = String(value || '').trim();
     }
-    
+
     if (fieldName.includes('.')) {
       const parts = fieldName.split('.');
       let current = billData;
@@ -121,9 +121,9 @@ function extractRowData(row, headers, rowNumber) {
       billData[fieldName] = value;
     }
   });
-  
+
   sanitizeAmounts(billData);
-  
+
   return { billData, srNo };
 }
 
@@ -133,8 +133,8 @@ function extractRowData(row, headers, rowNumber) {
  * @returns {Promise<Object|null>} The existing bill document or null
  */
 async function findExistingBillBySrNo(srNo) {
-  return await Bill.findOne({ 
-    $or: [{ srNo }, { excelSrNo: srNo }] 
+  return await Bill.findOne({
+    $or: [{ srNo }, { excelSrNo: srNo }]
   }).lean();
 }
 
@@ -148,28 +148,28 @@ async function findDuplicateByUniqueness(billData, rowNumber) {
   if (!billData.vendorNo && !billData.taxInvNo && !billData.taxInvDate && !billData.region) {
     return null;
   }
-  
+
   const uniquenessQuery = {};
-  
+
   if (billData.vendorNo) uniquenessQuery.vendorNo = billData.vendorNo;
   if (billData.taxInvNo) uniquenessQuery.taxInvNo = billData.taxInvNo;
   if (billData.region) uniquenessQuery.region = billData.region;
-  
+
   if (billData.taxInvDate) {
     const inputDate = new Date(billData.taxInvDate);
     const startOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 0, 0, 0);
     const endOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 23, 59, 59, 999);
-    
+
     uniquenessQuery.taxInvDate = {
       $gte: startOfDay,
       $lte: endOfDay
     };
   }
-  
+
   if (Object.keys(uniquenessQuery).length >= 2) {
     return await Bill.findOne(uniquenessQuery).lean();
   }
-  
+
   return null;
 }
 
@@ -182,50 +182,48 @@ async function findDuplicateByUniqueness(billData, rowNumber) {
 function mapMasterReferences(billData, masterData) {
   const { vendors, regions, currencies, natureOfWork, panStatuses, compliance } = masterData;
   const mapped = { ...billData };
-  
+
   if (mapped.vendorName || mapped.vendorNo) {
-    const vendor = vendors.find(v => 
+    const vendor = vendors.find(v =>
       v.vendorName?.toLowerCase().includes(mapped.vendorName?.toLowerCase()) ||
       v.vendorNo == mapped.vendorNo
     );
     if (vendor) mapped.vendor = vendor._id;
   }
-  
+
   if (mapped.region) {
-    const region = regions.find(r => 
+    const region = regions.find(r =>
       r.name?.toLowerCase() === mapped.region?.toLowerCase()
     );
     if (region) mapped.region = region.name;
   }
-  
+
   if (mapped.currency) {
-    const curr = currencies.find(c => 
+    const curr = currencies.find(c =>
       c.currency?.toLowerCase() === mapped.currency?.toLowerCase()
     );
     if (curr) mapped.currency = curr._id;
   }
-  
-  if (mapped.typeOfInv) {
-    const nature = natureOfWork.find(n => 
-      n.natureOfWork?.toLowerCase().includes(mapped.typeOfInv?.toLowerCase())
-    );
+
+  if (mapped.natureOfWork && typeof mapped.natureOfWork === 'string') {
+    const nature = findNatureOfWork(mapped.natureOfWork, natureOfWork);
     if (nature) mapped.natureOfWork = nature._id;
   }
-  
+
   if (mapped.panStatus) {
-    const pan = panStatuses.find(p => 
+    const pan = panStatuses.find(p =>
       p.name?.toLowerCase() === mapped.panStatus?.toLowerCase()
     );
     if (pan) mapped.panStatus = pan._id;
   }
-  
+
   if (mapped.compliance206AB) {
-    const comp = compliance.find(c => 
+    const comp = compliance.find(c =>
       c.compliance206AB?.toLowerCase().includes(mapped.compliance206AB?.toLowerCase())
     );
     if (comp) mapped.compliance206AB = comp._id;
   }
-  
+
   return mapped;
 }
 
@@ -249,21 +247,23 @@ async function updateExistingBill(existingBill, billData, masterData) {
  * @returns {Object|null} Matched nature of work document or null
  */
 function findNatureOfWork(typeOfInv, natureOfWorkList) {
-  if (!typeOfInv) return null;
-  
+  if (!typeOfInv) {
+    return natureOfWorkList.find(n => n.natureOfWork?.toLowerCase() === "others") || natureOfWorkList[0];
+  }
+
   const typeOfInv_lower = typeOfInv.toLowerCase().trim();
-  
-  let nature = natureOfWorkList.find(n => 
+
+  let nature = natureOfWorkList.find(n =>
     n.natureOfWork?.toLowerCase() === typeOfInv_lower
   );
-  
+
   if (!nature) {
     nature = natureOfWorkList.find(n => {
       const natureName = n.natureOfWork?.toLowerCase();
       return natureName?.includes(typeOfInv_lower) || typeOfInv_lower.includes(natureName);
     });
   }
-  
+
   if (!nature) {
     const typeWords = typeOfInv_lower.split(/\s+/);
     nature = natureOfWorkList.find(n => {
@@ -271,11 +271,11 @@ function findNatureOfWork(typeOfInv, natureOfWorkList) {
       return typeWords.some(word => word.length > 3 && natureName?.includes(word));
     });
   }
-  
+
   if (!nature) {
     nature = natureOfWorkList.find(n => n.natureOfWork?.toLowerCase() === "others") || natureOfWorkList[0];
   }
-  
+
   return nature;
 }
 
@@ -288,7 +288,7 @@ function findNatureOfWork(typeOfInv, natureOfWorkList) {
 async function createNewBill(billData, masterData) {
   const { vendors, regions, currencies, natureOfWork, panStatuses, compliance } = masterData;
   const newBillData = { ...billData };
-  
+
   newBillData.billDate = newBillData.taxInvDate || new Date();
   newBillData.amount = newBillData.taxInvAmt || 0;
   newBillData.siteStatus = "hold";
@@ -299,9 +299,9 @@ async function createNewBill(billData, masterData) {
   newBillData.poCreated = newBillData.poCreated || "No";
   newBillData.vendorName = newBillData.vendorName || "Unknown Vendor";
   newBillData.vendorNo = newBillData.vendorNo || "Unknown";
-  
+
   if (newBillData.vendorName || newBillData.vendorNo) {
-    const vendor = vendors.find(v => 
+    const vendor = vendors.find(v =>
       v.vendorName?.toLowerCase().includes(newBillData.vendorName?.toLowerCase()) ||
       v.vendorNo == newBillData.vendorNo
     );
@@ -309,36 +309,37 @@ async function createNewBill(billData, masterData) {
   } else {
     newBillData.vendor = new mongoose.Types.ObjectId();
   }
-  
-  const region = regions.find(r => 
+
+  const region = regions.find(r =>
     r.name?.toLowerCase() === newBillData.region?.toLowerCase()
   ) || regions[0];
   newBillData.region = region ? region.name : "DEFAULT";
-  
-  const currency = currencies.find(c => 
+
+  const currency = currencies.find(c =>
     c.currency?.toLowerCase() === newBillData.currency?.toLowerCase()
   ) || currencies.find(c => c.currency?.toLowerCase() === "inr") || currencies[0];
   newBillData.currency = currency ? currency._id : new mongoose.Types.ObjectId();
-  
-  const nature = findNatureOfWork(newBillData.typeOfInv, natureOfWork);
-  newBillData.natureOfWork = nature ? nature._id : new mongoose.Types.ObjectId();
-  
+
+  const nature = findNatureOfWork(newBillData.natureOfWork, natureOfWork);
+  // Use found nature, or fallback to first item in master list, or random ID if master is empty
+  newBillData.natureOfWork = nature ? nature._id : (natureOfWork[0] ? natureOfWork[0]._id : new mongoose.Types.ObjectId());
+
   if (newBillData.panStatus) {
-    const pan = panStatuses.find(p => 
+    const pan = panStatuses.find(p =>
       p.name?.toLowerCase() === newBillData.panStatus?.toLowerCase()
     );
     if (pan) newBillData.panStatus = pan._id;
   }
-  
+
   if (newBillData.compliance206AB) {
-    const comp = compliance.find(c => 
+    const comp = compliance.find(c =>
       c.compliance206AB?.toLowerCase().includes(newBillData.compliance206AB?.toLowerCase())
     );
     if (comp) newBillData.compliance206AB = comp._id;
   }
-  
+
   newBillData._importMode = true;
-  
+
   const newBill = new Bill(newBillData);
   await newBill.save();
   return newBill._id;
@@ -352,7 +353,7 @@ async function createNewBill(billData, masterData) {
 function formatImportResults(results) {
   let message = '';
   const totalProcessed = results.toInsert.length + results.toUpdate.length + results.skipped;
-  
+
   if (results.toInsert.length > 0 && results.toUpdate.length > 0) {
     message = `Successfully imported ${results.toInsert.length} new bills and updated ${results.toUpdate.length} existing bills`;
   } else if (results.toInsert.length > 0) {
@@ -364,11 +365,11 @@ function formatImportResults(results) {
   } else {
     message = 'No bills were processed from the Excel file';
   }
-  
+
   if (results.errors.length > 0) {
     message += `. ${results.errors.length} row${results.errors.length === 1 ? '' : 's'} had errors and were skipped`;
   }
-  
+
   return {
     inserted: results.toInsert.length,
     updated: results.toUpdate.length,
@@ -392,27 +393,93 @@ export const importBillsFromExcel = async (filePath, validVendorNos = [], patchO
   try {
     const masterData = await loadMasterData();
     const { worksheet, headers } = await readExcelWorkbook(filePath);
-    
+
     const results = {
       toInsert: [],
       toUpdate: [],
       skipped: 0,
       errors: []
     };
-    
+
+    // Initialize serial number generator
+    const getNextSrNo = await getNextSerialNumberGenerator();
+    const usedSrNos = new Set();
+
     for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
       const row = worksheet.getRow(rowNumber);
-      
-      if (!row.getCell(1).value) continue;
-      
+
+      // Skip fully empty rows
+      if (!row.hasValues) continue;
+
+      // STRICT CHECK: If first cell is empty, allow ONLY if it corresponds to SrNo column
+      // This allows auto-generation of SrNo for blank cells, while skipping other empty rows
+      const firstCellValue = row.getCell(1).value;
+      if (!firstCellValue) {
+        const firstHeader = headers[0];
+        const mappedField = headerMapping[firstHeader];
+
+        // If the first column is NOT SrNo, and the cell is empty, skip this row
+        if (mappedField !== 'srNo') {
+          continue;
+        }
+      }
+
       try {
-        const { billData, srNo } = extractRowData(row, headers, rowNumber);
-        
-        if (!srNo) continue;
-        
-        const existingBill = await findExistingBillBySrNo(srNo);
+        const { billData, srNo: extractedSrNo } = extractRowData(row, headers, rowNumber);
+
+        // Check if we have any meaningful data
+        const hasData = Object.values(billData).some(v => v !== null && v !== undefined && v !== '');
+        if (!hasData && !extractedSrNo) continue;
+
+        let srNo = extractedSrNo;
+
+        // Auto-generate srNo if missing and not in patch-only mode
+        if (!srNo && !patchOnly) {
+          // Generate a candidate and ensure it doesn't exist in DB or used list
+          let candidateSrNo;
+          let conflict = true;
+
+          while (conflict) {
+            candidateSrNo = getNextSrNo();
+
+            // Check usage in current session
+            if (usedSrNos.has(candidateSrNo)) {
+              continue; // Try next
+            }
+
+            // Check DB existence (double safety)
+            const existingInDb = await findExistingBillBySrNo(candidateSrNo);
+            if (existingInDb) {
+              continue; // Try next
+            }
+
+            conflict = false;
+          }
+
+          srNo = candidateSrNo;
+          billData.srNo = srNo;
+          billData.excelSrNo = srNo;
+        }
+
+        if (!srNo && patchOnly) {
+          // If patchOnly and no srNo, we can verify if we can match by uniqueness later
+          // But if we can't find it, we'll likely skip it.
+          // Let duplicates check handle it.
+        }
+
+        if (!srNo && !patchOnly) {
+          // Should not happen as we generated one, unless generator failed?
+          throw new Error("Failed to generate Serial Number");
+        }
+
+        // If we have an srNo (generated or manual), track it
+        if (srNo) {
+          usedSrNos.add(srNo);
+        }
+
+        const existingBill = srNo ? await findExistingBillBySrNo(srNo) : null;
         const duplicateByUniqueness = await findDuplicateByUniqueness(billData, rowNumber);
-        
+
         if (existingBill || duplicateByUniqueness) {
           if (patchOnly) {
             const billToUpdate = existingBill || duplicateByUniqueness;
@@ -422,18 +489,21 @@ export const importBillsFromExcel = async (filePath, validVendorNos = [], patchO
             results.skipped++;
           }
         } else if (!patchOnly) {
-          billData.srNo = srNo;
-          billData.excelSrNo = srNo;
+          // Double check we have srNo
+          if (!billData.srNo) {
+            // Safety check
+          }
+
           const newBillId = await createNewBill(billData, masterData);
           results.toInsert.push(newBillId);
         }
-        
+
       } catch (error) {
         let errorMessage = error.message;
         if (error.message.includes('duplicate') || error.message.includes('unique')) {
           errorMessage = `Duplicate bill found - this combination of vendor, invoice number, date, and region already exists`;
         }
-        
+
         results.errors.push({
           row: rowNumber,
           error: errorMessage,
@@ -441,11 +511,39 @@ export const importBillsFromExcel = async (filePath, validVendorNos = [], patchO
         });
       }
     }
-    
+
     return formatImportResults(results);
-    
+
   } catch (error) {
     throw error;
   }
 };
 
+/**
+ * generator function to get the next bill number
+ */
+async function getNextSerialNumberGenerator() {
+  const currentYear = new Date().getFullYear().toString().slice(-2);
+  const prefix = currentYear;
+
+  // Find the latest bill with this year's prefix
+  const lastBill = await Bill.findOne({
+    srNo: { $regex: new RegExp(`^${prefix}\\d{5,}$`) }
+  }).sort({ srNo: -1 }).lean();
+
+  let currentSequence = 0;
+
+  if (lastBill && lastBill.srNo) {
+    // Extract the sequence number
+    const sequencePart = lastBill.srNo.substring(prefix.length);
+    const num = parseInt(sequencePart, 10);
+    if (!isNaN(num)) {
+      currentSequence = num;
+    }
+  }
+
+  return function next() {
+    currentSequence++;
+    return `${prefix}${String(currentSequence).padStart(5, '0')}`;
+  };
+}

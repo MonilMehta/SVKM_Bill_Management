@@ -26,7 +26,7 @@ export async function extractPatchRowsFromExcel(filePath) {
   worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
     headers.push(cell.value?.toString().trim());
   });
-  
+
   if (headers[0]?.toLowerCase().includes('report generated')) {
     headerRowIdx++;
     headers = [];
@@ -49,6 +49,20 @@ export async function extractPatchRowsFromExcel(filePath) {
 // Use centralized header mapping from headerMap.js
 const headerToDbField = headerMapping;
 
+// Identify all Date fields from the Mongoose schema for robust parsing
+const dateFieldsSet = new Set();
+try {
+  if (Bill && Bill.schema && Bill.schema.paths) {
+    Object.keys(Bill.schema.paths).forEach(path => {
+      if (Bill.schema.paths[path].instance === 'Date') {
+        dateFieldsSet.add(path);
+      }
+    });
+  }
+} catch (err) {
+  console.error('[Schema] Error loading date fields:', err);
+}
+
 /**
  * Checks if a value is filled (not undefined, null, or empty string)
  * @param {*} val - Value to check
@@ -65,19 +79,55 @@ function isFilled(val) {
  * @returns {Date|*} Parsed date or original value
  */
 function parseDateIfNeeded(field, value) {
-  if (!value || typeof value !== 'string') return value;
-  const dateFields = ['taxInvDate', 'poDate', 'advanceDate', 'proformaInvDate'];
-  if (dateFields.includes(field)) {
-    const match = value.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-    if (match) {
-      const [_, day, month, year] = match;
-      return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-    }
-    if (!isNaN(Date.parse(value))) {
-      return new Date(value);
-    }
+  if (!value) return value;
+
+  // If it's already a Date object, return it
+  if (value instanceof Date) {
+    return value;
   }
+
+  if (typeof value !== 'string') return value;
+
+  const trimmedValue = value.trim();
+
+  // Regex for DD.MM.YYYY or DD-MM-YYYY (Full Date)
+  const fullDateMatch = trimmedValue.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2,4})$/);
+  if (fullDateMatch) {
+    let [_, day, month, year] = fullDateMatch;
+    if (year.length === 2) {
+      year = `20${year}`;
+    }
+    return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+  }
+
+  // Regex for DD.MM or DD-MM (Short Date, assume current year)
+  const shortDateMatch = trimmedValue.match(/^(\d{1,2})[-./](\d{1,2})$/);
+  if (shortDateMatch) {
+    let [_, day, month] = shortDateMatch;
+    const currentYear = new Date().getFullYear();
+    return new Date(`${currentYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+  }
+
+  // Fallback to standard parsing
+  if (!isNaN(Date.parse(trimmedValue))) {
+    return new Date(trimmedValue);
+  }
+
   return value;
+}
+
+/**
+ * Validates and parses hardCopy field value
+ * @param {*} value - Value to validate
+ * @returns {string|null} 'YES' or 'NO' if valid, null otherwise
+ */
+function validateHardCopyField(value) {
+  if (!value) return null;
+  const hardCopyValue = String(value).trim().toUpperCase();
+  if (hardCopyValue !== 'YES' && hardCopyValue !== 'NO') {
+    return null;
+  }
+  return hardCopyValue;
 }
 
 /**
@@ -94,6 +144,31 @@ function parseNumberIfNeeded(field, value) {
     return isNaN(num) ? value : num;
   }
   return value;
+}
+
+/**
+ * Parses field value based on field type (date, number, or text)
+ * @param {string} dbField - Database field name
+ * @param {*} value - Value to parse
+ * @returns {*} Parsed value
+ */
+function parseFieldValue(dbField, value) {
+  let parsedValue = value;
+
+  if (dbField === 'accountsDept.hardCopy') {
+    return validateHardCopyField(value);
+  }
+
+  // Use Schema-based date detection
+  if (dateFieldsSet.has(dbField)) {
+    parsedValue = parseDateIfNeeded(dbField, value);
+  }
+
+  if (dbField.includes('.amount') || dbField.includes('Amt')) {
+    parsedValue = parseNumberIfNeeded(dbField, value);
+  }
+
+  return parsedValue;
 }
 
 /**
@@ -215,31 +290,6 @@ const teamFieldRestrictions = {
 };
 
 /**
- * Maps Excel header names to their corresponding database fields
- */
-const specialFieldsMap = {
-  'COP Dt': 'copDetails.date',
-  'COP Amt': 'copDetails.amount',
-  'MIGO no': 'migoDetails.no',
-  'MIGO Dt': 'migoDetails.date',
-  'MIGO Amt': 'migoDetails.amount',
-  'MIGO done by': 'migoDetails.doneBy',
-  'SES no': 'sesDetails.no',
-  'SES Amt': 'sesDetails.amount',
-  'SES Dt': 'sesDetails.date',
-  'SES done by': 'sesDetails.doneBy',
-  'Dt ret-PIMO aft approval': 'pimoMumbai.dateReturnedFromDirector',
-  'F110 Identification': 'accountsDept.f110Identification',
-  'Dt of Payment': 'accountsDept.paymentDate',
-  'Hard Copy': 'accountsDept.hardCopy',
-  'Accts Identification': 'accountsDept.accountsIdentification',
-  'Payment Amt': 'accountsDept.paymentAmt',
-  'MIRO no': 'miroDetails.number',
-  'MIRO Dt': 'miroDetails.date',
-  'MIRO Amt': 'miroDetails.amount'
-};
-
-/**
  * All allowed nested fields for patch operations
  */
 const allAllowedFields = [
@@ -269,6 +319,7 @@ const allAllowedFields = [
  */
 const roleToTeam = {
   'qs_site': 'QS Team',
+  'qs_team': 'QS Team',
   'qs_mumbai': 'QS Team',
   'site_officer': 'Site Team',
   'site_engineer': 'Site Team',
@@ -294,7 +345,7 @@ function readWorkbookAndHeaders(workbook) {
   worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
     headers.push(cell.value?.toString().trim());
   });
-  
+
   if (headers[0]?.toLowerCase().includes('report generated')) {
     headerRowIdx++;
     headers = [];
@@ -323,10 +374,10 @@ function mapTeamName(teamName) {
  */
 function getAllowedFieldsForTeam(teamName) {
   const mappedTeam = mapTeamName(teamName);
-  const allowedFields = mappedTeam && teamFieldRestrictions[mappedTeam] 
-    ? teamFieldRestrictions[mappedTeam] 
+  const allowedFields = mappedTeam && teamFieldRestrictions[mappedTeam]
+    ? teamFieldRestrictions[mappedTeam]
     : [];
-  
+
   return allowedFields;
 }
 
@@ -343,44 +394,6 @@ function extractPatchRowData(row, headers) {
     rowData[header] = cell.value;
   });
   return rowData;
-}
-
-/**
- * Validates and parses hardCopy field value
- * @param {*} value - Value to validate
- * @returns {string|null} 'YES' or 'NO' if valid, null otherwise
- */
-function validateHardCopyField(value) {
-  if (!value) return null;
-  const hardCopyValue = String(value).trim().toUpperCase();
-  if (hardCopyValue !== 'YES' && hardCopyValue !== 'NO') {
-    return null;
-  }
-  return hardCopyValue;
-}
-
-/**
- * Parses field value based on field type (date, number, or text)
- * @param {string} dbField - Database field name
- * @param {*} value - Value to parse
- * @returns {*} Parsed value
- */
-function parseFieldValue(dbField, value) {
-  let parsedValue = value;
-  
-  if (dbField === 'accountsDept.hardCopy') {
-    return validateHardCopyField(value);
-  }
-  
-  if (dbField.includes('.date') || dbField.includes('Dt')) {
-    parsedValue = parseDateIfNeeded(dbField, value);
-  }
-  
-  if (dbField.includes('.amount') || dbField.includes('Amt')) {
-    parsedValue = parseNumberIfNeeded(dbField, value);
-  }
-  
-  return parsedValue;
 }
 
 /**
@@ -440,49 +453,56 @@ function applyBusinessRules(updateObj) {
 /**
  * Processes a single row for patch updates
  * @param {Object} rowData - Extracted row data
- * @param {number} rowNumber - Current row number
+ * @param {Object} columnMapping - Map of { header: dbField } for relevant columns in the file
+ * @param {string} srNoHeader - The specific header key for the Sr No column
  * @param {Array<string>} allowedFields - Fields allowed for the team
  * @param {Object} updateSummary - Object tracking field update counts
  * @param {Object} ignoredFieldsCount - Object tracking ignored field counts
- * @param {string} teamName - Team name
  * @returns {Promise<Object>} Result object with updated flag and optional srNo or reason
  */
-async function processPatchRow(rowData, rowNumber, allowedFields, updateSummary, ignoredFieldsCount, teamName) {
-  const srNo = rowData['Sr no'] ? String(rowData['Sr no']).trim() : null;
-  
+async function processPatchRow(rowData, columnMapping, srNoHeader, allowedFields, updateSummary, ignoredFieldsCount) {
+  // Use the identified Sr No header, or try fallback
+  const srNo = srNoHeader && rowData[srNoHeader] ? String(rowData[srNoHeader]).trim() : null;
+
   if (!srNo) {
     return { updated: false, reason: 'missing_srno' };
   }
-  
+
   const bill = await Bill.findOne({ srNo });
   if (!bill) {
-    return { updated: false, reason: 'bill_not_found' };
+    return { updated: false, reason: 'bill_not_found', srNo };
   }
 
   const billData = typeof bill.toObject === 'function' ? bill.toObject() : bill;
   const updateObj = initializeUpdateObject(billData);
   let hasUpdate = false;
 
-  for (const [header, dbField] of Object.entries(specialFieldsMap)) {
+  // Iterate over the relevant columns found in the file
+  for (const [header, dbField] of Object.entries(columnMapping)) {
+    // Skip if permission denied, but track it
     if (!isFieldAllowed(dbField, allowedFields)) {
-      if (!ignoredFieldsCount[dbField]) {
-        ignoredFieldsCount[dbField] = 0;
+      // Only verify if the cell is actually filled to count as an "ignored update"
+      if (isFilled(rowData[header])) {
+        if (!ignoredFieldsCount[dbField]) {
+          ignoredFieldsCount[dbField] = 0;
+        }
+        ignoredFieldsCount[dbField]++;
       }
-      ignoredFieldsCount[dbField]++;
       continue;
     }
-    
+
+    // Skip if cell is empty
     if (!isFilled(rowData[header])) {
       continue;
     }
-    
+
     const parsedValue = parseFieldValue(dbField, rowData[header]);
     if (parsedValue === null) {
       continue;
     }
-    
+
     setNestedField(updateObj, dbField, parsedValue);
-    
+
     if (!updateSummary[dbField]) {
       updateSummary[dbField] = 0;
     }
@@ -496,7 +516,17 @@ async function processPatchRow(rowData, rowNumber, allowedFields, updateSummary,
     await Bill.updateOne({ _id: bill._id }, { $set: updateObj });
     return { updated: true, srNo };
   } else {
-    return { updated: false, reason: 'no_updates' };
+    // If we are here, it means we found the bill but had no valid updates to apply
+    // Check if permission issues were the cause
+    const permissionDenied = Object.entries(columnMapping).some(([h, dbField]) =>
+      isFilled(rowData[h]) && !isFieldAllowed(dbField, allowedFields)
+    );
+
+    return {
+      updated: false,
+      reason: permissionDenied ? 'permission_denied' : 'no_updates',
+      srNo
+    };
   }
 }
 
@@ -508,19 +538,10 @@ async function processPatchRow(rowData, rowNumber, allowedFields, updateSummary,
  * @param {Object} updateSummary - Field update summary
  * @param {Object} ignoredFieldsCount - Ignored field counts
  * @param {Array<string>} allowedFields - Allowed fields for the team
+ * @param {Array<Object>} skippedDetails - Details about skipped rows
  * @returns {Object} Formatted result object
  */
-/**
- * Formats patch results into a response object
- * @param {number} updated - Number of bills updated
- * @param {number} skipped - Number of bills skipped
- * @param {string} teamName - Team name
- * @param {Object} updateSummary - Field update summary
- * @param {Object} ignoredFieldsCount - Ignored field counts
- * @param {Array<string>} allowedFields - Allowed fields for the team
- * @returns {Object} Formatted result object
- */
-function formatPatchResults(updated, skipped, teamName, updateSummary, ignoredFieldsCount, allowedFields) {
+function formatPatchResults(updated, skipped, teamName, updateSummary, ignoredFieldsCount, allowedFields, skippedDetails) {
   const totalIgnoredUpdates = Object.values(ignoredFieldsCount).reduce((sum, count) => sum + count, 0);
 
   return {
@@ -536,7 +557,8 @@ function formatPatchResults(updated, skipped, teamName, updateSummary, ignoredFi
     teamRestrictions: {
       active: !!teamName,
       allowedFields: allowedFields.length > 0 ? allowedFields : 'none'
-    }
+    },
+    skippedDetails // Include for debugging
   };
 }
 
@@ -550,29 +572,55 @@ function formatPatchResults(updated, skipped, teamName, updateSummary, ignoredFi
 export async function patchBillsFromExcelFile(filePath, teamName = null) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
-  
+
   const { worksheet, headers, headerRowIdx } = readWorkbookAndHeaders(workbook);
   const allowedFields = getAllowedFieldsForTeam(teamName);
-  
+
+  // Identify 'Sr No' column and relevant patchable columns
+  let srNoHeader = null;
+  const columnMapping = {}; // { header: dbField }
+
+  headers.forEach(header => {
+    // Normalization for robust matching
+    // But headerMapping should catch most standard variations
+    const dbField = headerMapping[header] || headerMapping[header.trim()];
+
+    if (dbField === 'srNo') {
+      srNoHeader = header;
+    } else if (dbField && allAllowedFields.includes(dbField)) {
+      columnMapping[header] = dbField;
+    }
+  });
+
+  if (!srNoHeader) {
+    // Try fuzzy match for Sr No if not found
+    srNoHeader = headers.find(h => h.toLowerCase().replace(/[^a-z0-9]/g, '') === 'srno');
+  }
+
   let updated = 0, skipped = 0;
   let updateSummary = {};
   let ignoredFieldsCount = {};
-  
+  let skippedDetails = [];
+
   for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
-    if (!row.getCell(1).value) continue;
-    
+    if (!row.getCell(1).value) continue; // Skip completely empty leading cells
+
     const rowData = extractPatchRowData(row, headers);
-    
-    const result = await processPatchRow(rowData, rowNumber, allowedFields, updateSummary, ignoredFieldsCount, teamName);
-    
+
+    const result = await processPatchRow(rowData, columnMapping, srNoHeader, allowedFields, updateSummary, ignoredFieldsCount);
+
     if (result.updated) {
       updated++;
     } else {
       skipped++;
+      skippedDetails.push({
+        row: rowNumber,
+        reason: result.reason,
+        srNo: result.srNo || 'unknown'
+      });
     }
   }
-  
-  return formatPatchResults(updated, skipped, teamName, updateSummary, ignoredFieldsCount, allowedFields);
-}
 
+  return formatPatchResults(updated, skipped, teamName, updateSummary, ignoredFieldsCount, allowedFields, skippedDetails);
+}
