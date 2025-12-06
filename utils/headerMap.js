@@ -13,19 +13,19 @@ export const headerMapping = {
   "Sr no": "srNo",
   "Serial No": "srNo",
   "Sr no Old": "srNoOld",
-  
+
   // Type of Invoice / Nature of Work
   "Type of inv": "natureOfWork",
   "Type of Inv": "natureOfWork",
   "Nature of Work": "natureOfWork",
-  
+
   // Region
   "Region": "region",
-  
+
   // Project Description
   "Project Description": "projectDescription",
   "Project": "projectDescription",
-  
+
   // Vendor Information
   "Vendor no": "vendorNo",
   "Vendor No": "vendorNo",
@@ -46,7 +46,7 @@ export const headerMapping = {
   "PAN": "PAN",
   "PAN No": "PAN",
   "PAN Number": "PAN",
-  
+
   // Purchase Order
   "If PO created??": "poCreated",
   "PO Created": "poCreated",
@@ -57,7 +57,7 @@ export const headerMapping = {
   "PO Date": "poDate",
   "PO Amt": "poAmt",
   "PO Amount": "poAmt",
-  
+
   // Proforma Invoice
   "Proforma Inv No": "proformaInvNo",
   "Proforma Invoice No": "proformaInvNo",
@@ -69,7 +69,7 @@ export const headerMapping = {
   "Proforma Invoice Received at Site": "proformaInvRecdAtSite",
   "Proforma Inv Recd by": "proformaInvRecdBy",
   "Proforma Invoice Received by": "proformaInvRecdBy",
-  
+
   // Tax Invoice
   "Tax Inv no": "taxInvNo",
   "Tax Inv No": "taxInvNo",
@@ -87,17 +87,17 @@ export const headerMapping = {
   "Tax Invoice Received at Site": "taxInvRecdAtSite",
   "Tax Inv Recd by": "taxInvRecdBy",
   "Tax Invoice Received by": "taxInvRecdBy",
-  
+
   // Department and Remarks
   "Department": "department",
   "Remarks by Site Team": "remarksBySiteTeam",
   "Remarks related to Inv": "remarksBySiteTeam",
   "Site Team Remarks": "remarksBySiteTeam",
-  
+
   // Attachment
   "Attachment": "attachment",
   "Attachment Type": "attachmentType",
-  
+
   // Advance Details
   "Advance Dt": "advanceDate",
   "Advance Date": "advanceDate",
@@ -107,35 +107,35 @@ export const headerMapping = {
   "Advance Percentage ": "advancePercentage", // with trailing space
   "Adv request entered by": "advRequestEnteredBy",
   "Advance Request Entered By": "advRequestEnteredBy",
-  
+
   // Quality Engineer
   "Dt given to Quality Engineer": "qualityEngineer.dateGiven",
   "Date Given to Quality Engineer": "qualityEngineer.dateGiven",
   "Name of Quality Engineer": "qualityEngineer.name",
   "Quality Engineer Name": "qualityEngineer.name",
-  
+
   // QS Inspection
   "Dt given to QS for Inspection": "qsInspection.dateGiven",
   "Date Given to QS for Inspection": "qsInspection.dateGiven",
   "Name of QS": "qsInspection.name", // Will be handled contextually
   "QS Name": "qsInspection.name",
-  
+
   // QS Measurement Check
   "Checked by QS with Dt of Measurment": "qsMeasurementCheck.dateGiven",
   "Checked  by QS with Dt of Measurment": "qsMeasurementCheck.dateGiven", // with extra space
   "Checked by QS with Date of Measurement": "qsMeasurementCheck.dateGiven",
-  
+
   // Vendor Final Invoice
   "Given to vendor-Query/Final Inv": "vendorFinalInv.dateGiven",
   "Vendor Final Invoice Date": "vendorFinalInv.dateGiven",
   "Name of Vendor Final Inv": "vendorFinalInv.name",
-  
+
   // QS COP
   "Dt given to QS for COP": "qsCOP.dateGiven",
   "Date Given to QS for COP": "qsCOP.dateGiven",
   "Name - QS": "qsCOP.name",
   "QS COP Name": "qsCOP.name",
-  
+
   // COP Details
   "COP Dt": "copDetails.date",
   "COP Date": "copDetails.date",
@@ -143,11 +143,11 @@ export const headerMapping = {
   "COP Amount": "copDetails.amount",
   "COP Date Returned": "copDetails.dateReturned",
   "COP Remarks": "copDetails.remarks",
-  
+
   // QS Team Remarks
   "Remarks by QS Team": "remarksByQSTeam",
   "QS Team Remarks": "remarksByQSTeam",
-  
+
   // MIGO Details
   "Dt given for MIGO": "migoDetails.dateGiven",
   "Date Given for MIGO": "migoDetails.dateGiven",
@@ -160,44 +160,44 @@ export const headerMapping = {
   "MIGO Amount": "migoDetails.amount",
   "Migo done by": "migoDetails.doneBy",
   "MIGO Done By": "migoDetails.doneBy",
-  
+
   // Invoice Return to Site
   "Dt-Inv returned to Site office": "invReturnedToSite",
   "Date Invoice Returned to Site Office": "invReturnedToSite",
   "Invoice Returned to Site": "invReturnedToSite",
-  
+
   // Site Engineer
   "Dt given to Site Engineer": "siteEngineer.dateGiven",
   "Date Given to Site Engineer": "siteEngineer.dateGiven",
   "Name of Site Engineer": "siteEngineer.name",
   "Site Engineer Name": "siteEngineer.name",
-  
+
   // Architect
   "Dt given to Architect": "architect.dateGiven",
   "Date Given to Architect": "architect.dateGiven",
   "Name of Architect": "architect.name",
   "Architect Name": "architect.name",
-  
+
   // Site Incharge
   "Dt given-Site Incharge": "siteIncharge.dateGiven",
   "Date Given to Site Incharge": "siteIncharge.dateGiven",
   "Name-Site Incharge": "siteIncharge.name",
   "Site Incharge Name": "siteIncharge.name",
-  
+
   // General Remarks
   "Remarks": "remarks",
   "Remarks ": "remarks", // with trailing space
-  
+
   // Site Office Dispatch
   "Dt given to Site Office for dispatch": "siteOfficeDispatch.dateGiven",
   "Date Given to Site Office for Dispatch": "siteOfficeDispatch.dateGiven",
   "Name-Site Office": "siteOfficeDispatch.name",
   "Site Office Name": "siteOfficeDispatch.name",
-  
+
   // Site Status
   "Status": "siteStatus",
   "Site Status": "siteStatus",
-  
+
   // PIMO Mumbai
   "Dt given to PIMO Mumbai": "pimoMumbai.dateGiven",
   "Date Given to PIMO Mumbai": "pimoMumbai.dateGiven",
@@ -221,13 +221,13 @@ export const headerMapping = {
   "Date Returned from Director": "pimoMumbai.dateReturnedFromDirector",
   "Dt returned from SES": "pimoMumbai.dateReturnedFromSES",
   "Date Returned from SES": "pimoMumbai.dateReturnedFromSES",
-  
+
   // QS Mumbai
   "Dt given to QS Mumbai": "qsMumbai.dateGiven",
   "Date Given to QS Mumbai": "qsMumbai.dateGiven",
   "Name of QS Mumbai": "qsMumbai.name",
   "QS Mumbai Name": "qsMumbai.name",
-  
+
   // IT Department
   "Dt given to IT Dept": "itDept.dateGiven",
   "Date Given to IT Department": "itDept.dateGiven",
@@ -235,7 +235,7 @@ export const headerMapping = {
   "IT Department Name": "itDept.name",
   "Dt recd from IT Dept": "itDept.dateReceived",
   "Date Received from IT Department": "itDept.dateReceived",
-  
+
   // SES Details
   "SES no": "sesDetails.no",
   "SES No": "sesDetails.no",
@@ -249,7 +249,7 @@ export const headerMapping = {
   "SES Name": "sesDetails.name",
   "Dt given for SES": "sesDetails.dateGiven",
   "Date Given for SES": "sesDetails.dateGiven",
-  
+
   // Director Approval
   "Dt given to Director/Advisor/Trustee for approval": "approvalDetails.directorApproval.dateGiven",
   "Date Given to Director for Approval": "approvalDetails.directorApproval.dateGiven",
@@ -257,7 +257,7 @@ export const headerMapping = {
   "Date Received in PIMO After Approval": "approvalDetails.directorApproval.dateReceived",
   "Remarks PIMO Mumbai": "approvalDetails.remarksPimoMumbai",
   "PIMO Mumbai Remarks": "approvalDetails.remarksPimoMumbai",
-  
+
   // Accounts Department
   "Dt given to Accts dept": "accountsDept.dateGiven",
   "Date Given to Accounts Department": "accountsDept.dateGiven",
@@ -290,7 +290,7 @@ export const headerMapping = {
   "Accounts Department Remarks": "accountsDept.remarksAcctsDept",
   "Accts Status": "accountsDept.status",
   "Payment Status": "accountsDept.status",
-  
+
   // MIRO Details (for Accounts Team)
   "MIRO no": "miroDetails.number",
   "MIRO No": "miroDetails.number",
@@ -299,13 +299,13 @@ export const headerMapping = {
   "MIRO Date": "miroDetails.date",
   "MIRO Amt": "miroDetails.amount",
   "MIRO Amount": "miroDetails.amount",
-  
+
   // Bill Date and Amount (Critical fields)
   "Bill Date": "billDate",
   "Amount": "amount",
   "Bill Amount": "amount",
   "Total Amount": "amount",
-  
+
   // Vendor-specific additional fields (for vendor master imports)
   "Addl 1": "addl1",
   "Addl 2": "addl2",
@@ -488,9 +488,11 @@ export const vendorHeaderMapping = {
   "Email IDs": "emailIds",
   "EmailId": "emailIds",
   "Email Address": "emailIds",
+  "Email ids": "emailIds",
   "Phone": "phoneNumbers",
   "Phone No": "phoneNumbers",
   "Phone No.": "phoneNumbers",
+  "Phone no": "phoneNumbers",
   "Phone Number": "phoneNumbers",
   "Phone Numbers": "phoneNumbers",
   "Mobile": "phoneNumbers",

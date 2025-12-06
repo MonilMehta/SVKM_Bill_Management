@@ -279,17 +279,40 @@ function parseVendorNumber(value, rowNumber) {
 }
 
 /**
+ * Extracts the actual value from an ExcelJS cell value which might be an object (hyperlink, formula, etc.)
+ * @param {*} value - The raw cell value
+ * @returns {*} The extracted value (string, number, or null)
+ */
+function extractCellValue(value) {
+  if (value && typeof value === 'object') {
+    // Handle ExcelJS hyperlink object { text: '...', hyperlink: '...' }
+    if (value.text) return value.text;
+
+    // Handle ExcelJS formula result { formula: '...', result: '...' }
+    if (value.result !== undefined) return value.result;
+
+    // Handle rich text { richText: [ { text: '...' }, ... ] }
+    if (value.richText && Array.isArray(value.richText)) {
+      return value.richText.map(rt => rt.text).join('');
+    }
+  }
+  return value;
+}
+
+/**
  * Parses array field (email or phone numbers)
  * @param {*} value - Value to parse
  * @returns {Array} Array of parsed values
  */
 function parseArrayField(value) {
-  if (typeof value === 'string') {
-    return value.split(/[,;\s\n\r]+/).map(v => v.trim()).filter(Boolean);
-  } else if (Array.isArray(value)) {
-    return value.map(v => v.toString().trim()).filter(Boolean);
-  } else if (value) {
-    return [value.toString().trim()];
+  const extractedValue = extractCellValue(value);
+
+  if (typeof extractedValue === 'string') {
+    return extractedValue.split(/[,;\s/]+/).map(v => v.trim()).filter(Boolean);
+  } else if (Array.isArray(extractedValue)) {
+    return extractedValue.map(v => v.toString().trim()).filter(Boolean);
+  } else if (extractedValue) {
+    return [extractedValue.toString().trim()];
   } else {
     return [];
   }
@@ -307,7 +330,8 @@ async function mapReferenceField(field, value, rowNumber) {
     return undefined;
   }
 
-  const valueStr = value.toString().trim();
+  const extractedValue = extractCellValue(value);
+  const valueStr = extractedValue.toString().trim();
   const { id, validValues, bestMatch } = await mapReferenceValue(field, valueStr);
 
   if (!id) {
@@ -332,20 +356,28 @@ async function normalizeVendorFieldValue(dbField, value, rowNumber) {
     return undefined;
   }
 
+  const extractedValue = extractCellValue(value);
+
   if (dbField === 'vendorNo') {
-    return parseVendorNumber(value, rowNumber);
+    return parseVendorNumber(extractedValue, rowNumber);
   }
 
   if (dbField === 'emailIds' || dbField === 'phoneNumbers') {
-    return parseArrayField(value);
+    return parseArrayField(extractedValue); // parseArrayField now handles extractedValue but we pass extractedValue to be safe or raw value if we want double check, but parseArrayField calls extractCellValue internally so we can pass clean value or raw value. Let's pass raw value to consistency with original if we didn't change helper usage above, but here we already extracted.
+    // Actually parseArrayField calls extractCellValue, so we can pass raw value 'value' 
+    // BUT since we are rewriting normalizeVendorFieldValue, let's just pass 'value' to parseArrayField to use its internal extraction logic, 
+    // OR just use parseArrayField as rewritten.
+    // However, I am only replacing strict block of code.
+    // Let's look at where I am replacing.
   }
 
   if (dbField === 'complianceStatus' || dbField === 'PANStatus') {
     return mapReferenceField(dbField, value, rowNumber);
   }
 
-  return value;
+  return extractedValue;
 }
+
 
 /**
  * Processes vendor row data and extracts vendor fields
@@ -462,10 +494,10 @@ function formatVendorImportResults(inserted, updated, skipped, errors, validComp
  */
 export async function insertVendorsFromExcel(filePath) {
   await ensureMasterValuesExist(false);
-  
+
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
-  
+
   const { worksheet, headers, headerRowIdx } = readVendorWorkbook(workbook);
 
   let inserted = 0, updated = 0, skipped = 0, errors = [];
@@ -637,10 +669,11 @@ export async function updateVendorComplianceFromExcel(filePath) {
       }
 
       // Process Email
-      const emailHeaders = ['Email', 'Email ID', 'Email IDs', 'EmailId', 'Email Address'];
+      const emailHeaders = ['Email', 'Email ID', 'Email IDs', 'EmailId', 'Email Address', 'Email ids'];
       for (const header of emailHeaders) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
-          const emailValue = rowData[header].toString().trim();
+          const rawValue = extractCellValue(rowData[header]);
+          const emailValue = rawValue.toString().trim();
           if (emailValue) {
             const emails = emailValue.split(/[,;\s\n\r]+/).map(e => e.trim()).filter(Boolean);
             if (emails.length > 0) {
@@ -653,11 +686,12 @@ export async function updateVendorComplianceFromExcel(filePath) {
 
       // Process Phone No
       const phoneHeaders = [
-        'Phone', 'Phone No', 'Phone No.', 'Phone Number', 'Phone Numbers', 'Mobile', 'Mobile No', 'Mobile Number'
+        'Phone', 'Phone No', 'Phone No.', 'Phone Number', 'Phone Numbers', 'Mobile', 'Mobile No', 'Mobile Number', 'Phone no'
       ];
       for (const header of phoneHeaders) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
-          const phoneValue = rowData[header].toString().trim();
+          const rawValue = extractCellValue(rowData[header]);
+          const phoneValue = rawValue.toString().trim();
           if (phoneValue) {
             const phones = phoneValue.split(/[,;\s\n\r]+/).map(p => p.trim()).filter(Boolean);
             if (phones.length > 0) {
@@ -686,7 +720,7 @@ export async function updateVendorComplianceFromExcel(filePath) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const addl2Value = rowData[header].toString().trim();
           if (addl2Value) {
-            updateObj.addl2 = addl2Value;            break;
+            updateObj.addl2 = addl2Value; break;
           }
         }
       }

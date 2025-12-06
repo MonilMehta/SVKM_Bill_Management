@@ -450,7 +450,6 @@ const importBills = async (req, res) => {
 // Function to patch bills from Excel/CSV without creating new records
 const patchBillsFromExcel = async (req, res) => {
   try {
-    console.log('[PATCH DEBUG] patchBillsFromExcel called');
     await runUpload(req, res);
     if (!req.files || !req.files.length) {
       return sendError(res, 400, {
@@ -468,6 +467,7 @@ const patchBillsFromExcel = async (req, res) => {
       // Map user roles to teams
       const roleToTeam = {
         'qs_site': 'QS Team',
+        'qs_team': 'QS Team',
         'qs_mumbai': 'QS Team',
         'site_officer': 'Site Team',
         'site_engineer': 'Site Team',
