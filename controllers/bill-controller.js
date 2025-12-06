@@ -104,8 +104,8 @@ const createBill = async (req, res) => {
   try {
     // Get role from query params
     const { role } = req.query;
- 
-    const typeofinv=req.body.typeOfInv;
+
+    const typeofinv = req.body.typeOfInv;
     // Accept vendorNo or vendorName from request
     let vendorQuery = {};
     if (req.body.vendorNo) {
@@ -250,40 +250,39 @@ const createBill = async (req, res) => {
     }
 
     // Uniqueness check for vendor, taxInvNo, taxInvDate, region only for specific type of invoice
-    console.log("Type of invoice is : ",typeofinv);
     if (
-  typeofinv != "Advance/LC/BG" &&
-  typeofinv != "Direct FI Entry" &&
-  typeofinv != "Proforma Invoice"
-  ) {
-    
-    const uniqueQuery = {
-      vendor: vendorDoc._id, // Use vendor ObjectId instead of vendorNo
-      taxInvNo: req.body.taxInvNo,
-      region: req.body.region,
-    };
-    
-    // For date comparison, use date range to match same day regardless of time
-    if (req.body.taxInvDate) {
-      const inputDate = new Date(req.body.taxInvDate);
-      const startOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 0, 0, 0);
-      const endOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 23, 59, 59, 999);
-      
-      uniqueQuery.taxInvDate = {
-        $gte: startOfDay,
-        $lte: endOfDay
+      typeofinv != "Advance/LC/BG" &&
+      typeofinv != "Direct FI Entry" &&
+      typeofinv != "Proforma Invoice"
+    ) {
+
+      const uniqueQuery = {
+        vendor: vendorDoc._id, // Use vendor ObjectId instead of vendorNo
+        taxInvNo: req.body.taxInvNo,
+        region: req.body.region,
       };
+
+      // For date comparison, use date range to match same day regardless of time
+      if (req.body.taxInvDate) {
+        const inputDate = new Date(req.body.taxInvDate);
+        const startOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 0, 0, 0);
+        const endOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 23, 59, 59, 999);
+
+        uniqueQuery.taxInvDate = {
+          $gte: startOfDay,
+          $lte: endOfDay
+        };
+      }
+
+      const duplicate = await Bill.findOne(uniqueQuery);
+      if (duplicate) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "A bill with the same vendorNo, taxInvNo, taxInvDate, and region already exists.",
+        });
+      }
     }
-    
-    const duplicate = await Bill.findOne(uniqueQuery);
-    if (duplicate) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "A bill with the same vendorNo, taxInvNo, taxInvDate, and region already exists.",
-      });
-    }
-  }
 
     const newBillData = {
       ...billData,
@@ -296,7 +295,7 @@ const createBill = async (req, res) => {
       currentCount: role === "3" ? 3 : 1,
       maxCount: role === "3" ? 3 : 1,
       siteStatus: role === "3" ? "accept" : "hold",
-    };  
+    };
     const bill = new Bill(newBillData);
     await bill.save();
     bill.pimoMumbai.markReceived = role === "3" ? true : false;
@@ -692,15 +691,15 @@ const patchBill = async (req, res) => {
     // Track fields that we've processed to avoid duplicates
     const processedFields = new Set();
 
-     // check if vendorNo, vendor objectId, or vendorName is provided, considered all three cases, find the vendor and update updates.vendor field
+    // check if vendorNo, vendor objectId, or vendorName is provided, considered all three cases, find the vendor and update updates.vendor field
     // able to update vendor details after creating the bill
     if (req.body.vendorNo || req.body.vendorName || req.body.vendor) {
       if (req.body.vendor && mongoose.Types.ObjectId.isValid(req.body.vendor)) {
         const vendorDoc = await VendorMaster.findById(req.body.vendor);
         if (!vendorDoc) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             success: false,
-            message: "Vendor not found" 
+            message: "Vendor not found"
           });
         }
         updates.vendor = vendorDoc._id;
@@ -713,9 +712,9 @@ const patchBill = async (req, res) => {
         }
         const vendorDoc = await VendorMaster.findOne(vendorQuery);
         if (!vendorDoc) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             success: false,
-            message: "Vendor not found" 
+            message: "Vendor not found"
           });
         }
         updates.vendor = vendorDoc._id;
@@ -775,7 +774,9 @@ const patchBill = async (req, res) => {
       }
     }
 
-    // Handle nested objects
+    // Handle nested objects using DOT NOTATION to prevent erasing sibling fields
+    // Instead of setting { qsInspection: { dateGiven: value } } which replaces the whole object,
+    // we use { "qsInspection.dateGiven": value } which only updates that specific field
     schemaFields.forEach((path) => {
       const pathParts = path.split(".");
       if (pathParts.length > 1) {
@@ -783,12 +784,7 @@ const patchBill = async (req, res) => {
 
         // If the top-level field is in the request body and is an object
         if (req.body[topLevel] && typeof req.body[topLevel] === "object") {
-          // Initialize the object in updates if not already there
-          if (!updates[topLevel]) {
-            updates[topLevel] = {};
-          }
-
-          // Get the nested field
+          // Get the nested field name (e.g., "dateGiven" or "name")
           const nestedField = pathParts.slice(1).join(".");
           const nestedValue = req.body[topLevel][nestedField];
 
@@ -808,18 +804,8 @@ const patchBill = async (req, res) => {
               currentNestedValue === undefined ||
               nestedValue !== null
             ) {
-              // Set the nested field
-              const lastPart = pathParts[pathParts.length - 1];
-              let currentObj = updates[topLevel];
-
-              for (let i = 1; i < pathParts.length - 1; i++) {
-                if (!currentObj[pathParts[i]]) {
-                  currentObj[pathParts[i]] = {};
-                }
-                currentObj = currentObj[pathParts[i]];
-              }
-
-              currentObj[lastPart] = nestedValue;
+              // Use DOT NOTATION for the update to avoid erasing sibling fields
+              updates[path] = nestedValue;
             }
           }
 
@@ -827,6 +813,8 @@ const patchBill = async (req, res) => {
         }
       }
     });
+
+
 
     // Add attachments if any new files were uploaded
     if (req.files && req.files.length > 0) {
@@ -849,7 +837,7 @@ const patchBill = async (req, res) => {
     // Set import mode to avoid validation errors
     existingBill.setImportMode(true);
 
-     // Only check uniqueness for certain types of invoices
+    // Only check uniqueness for certain types of invoices
     const typeOfInv = req.body.typeOfInv !== undefined ? req.body.typeOfInv : existingBill.typeOfInv;
     let uniqueQuery = {};
     if (
@@ -857,33 +845,33 @@ const patchBill = async (req, res) => {
       typeOfInv != "Direct FI Entry" &&
       typeOfInv != "Proforma Invoice"
     ) {
-    // Uniqueness check for vendor, taxInvNo, taxInvDate, region (ignore self)
-    uniqueQuery = {
-      vendor:
-        updates.vendor !== undefined ? updates.vendor : existingBill.vendor,
-      taxInvNo:
-        req.body.taxInvNo !== undefined
-          ? req.body.taxInvNo
-          : existingBill.taxInvNo,
-      region:
-        req.body.region !== undefined ? req.body.region : existingBill.region,
-      _id: { $ne: existingBill._id },
-    };
-  }
-    
+      // Uniqueness check for vendor, taxInvNo, taxInvDate, region (ignore self)
+      uniqueQuery = {
+        vendor:
+          updates.vendor !== undefined ? updates.vendor : existingBill.vendor,
+        taxInvNo:
+          req.body.taxInvNo !== undefined
+            ? req.body.taxInvNo
+            : existingBill.taxInvNo,
+        region:
+          req.body.region !== undefined ? req.body.region : existingBill.region,
+        _id: { $ne: existingBill._id },
+      };
+    }
+
     // For date comparison, use date range to match same day regardless of time
     const taxInvDate = req.body.taxInvDate !== undefined ? req.body.taxInvDate : existingBill.taxInvDate;
     if (taxInvDate) {
       const inputDate = new Date(taxInvDate);
       const startOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 0, 0, 0);
       const endOfDay = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate(), 23, 59, 59, 999);
-      
+
       uniqueQuery.taxInvDate = {
         $gte: startOfDay,
         $lte: endOfDay
       };
     }
-    
+
     const duplicate = await Bill.findOne(uniqueQuery);
     if (duplicate) {
       return res.status(400).json({
@@ -1385,13 +1373,13 @@ const editPaymentInstructions = async (req, res) => {
       bill.accountsDept.remarksForPayInstructions = remarksForPayInstructions
     if (f110Identification !== undefined)
       bill.accountsDept.f110Identification = f110Identification;
-    if (paymentDate !== undefined){
+    if (paymentDate !== undefined) {
       bill.accountsDept.paymentDate = paymentDate;
       bill.accountsDept.status = 'Paid';
     }
     if (paymentAmt !== undefined)
       bill.accountsDept.paymentAmt = paymentAmt;
-    if (status !== undefined) 
+    if (status !== undefined)
       bill.accountsDept.status = status;
 
     // const updatedBill = await Bill.findByIdAndUpdate(
@@ -1546,10 +1534,10 @@ const accountsPaymentReject = async (req, res) => {
       });
     }
 
-    if(billFound.accountsDept && billFound.accountsDept.paymentDate){
+    if (billFound.accountsDept && billFound.accountsDept.paymentDate) {
       billFound.accountsDept.paymentDate = null;
     }
-    if(billFound.accountsDept && billFound.accountsDept.status){
+    if (billFound.accountsDept && billFound.accountsDept.status) {
       billFound.accountsDept.status = "Unpaid";
     }
 
@@ -1584,7 +1572,7 @@ const getFilteredBills = async (req, res) => {
           currentCount: 1
         };
         break;
-      
+
       case "site_pimo":
         filter = {
           ...filter,
@@ -1671,6 +1659,163 @@ const getFilteredBills = async (req, res) => {
   }
 };
 
+/**
+ * Delete specific date fields based on teamName and sendTo parameters
+ * This API allows teams to clear specific dates when a bill needs to be returned or marked as not received
+ * 
+ * @param {string} teamName - The team performing the action (Site Team, QS Team, PIMO Team, Accounts Team)
+ * @param {string} sendTo - The destination/action field to clear
+ * @param {string|string[]} billId - Single bill ID or array of bill IDs to update
+ */
+const deleteDate = async (req, res) => {
+  try {
+    const { teamName, sendTo, billId } = req.body;
+
+    // Validate required fields
+    if (!teamName || !sendTo || !billId) {
+      return res.status(400).json({
+        success: false,
+        message: "teamName, sendTo, and billId are required",
+      });
+    }
+
+    // Convert single billId to array for uniform processing
+    const billIds = Array.isArray(billId) ? billId : [billId];
+
+    // Validate all bill IDs
+    for (const id of billIds) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid Bill ID format: ${id}`,
+        });
+      }
+    }
+
+    // Define the mapping of teamName + sendTo to date fields to clear
+    // Based on the workflow:
+    // 📌 Site Team mappings
+    // 📌 QS Team mappings
+    // 📌 PIMO Team mappings
+    // 📌 Accounts Team mappings
+    // Note: Only date fields are cleared, name fields are preserved
+    const dateFieldMappings = {
+      // Site Team mappings
+      "Site Team": {
+        "Quality Engineer": { field: "qualityEngineer.dateGiven", additionalFields: [] },
+        "QS Measure": { field: "qsMeasurementCheck.dateGiven", additionalFields: [] },
+        "QS for Prov COP": { field: "qsCOP.dateGiven", additionalFields: [] },
+        "Site Engineer": { field: "siteEngineer.dateGiven", additionalFields: [] },
+        "Site Architect": { field: "architect.dateGiven", additionalFields: [] },
+        "Site Incharge": { field: "siteIncharge.dateGiven", additionalFields: [] },
+        "MIGO Team": { field: "migoDetails.dateGiven", additionalFields: [] },
+        "Ret Site aft MIGO": { field: "invReturnedToSite", additionalFields: [] },
+        "Site Dispatch": { field: "siteOfficeDispatch.dateGiven", additionalFields: [] },
+        "PIMO Team": { field: "pimoMumbai.dateGiven", additionalFields: [] },
+      },
+      // QS Team mappings
+      "QS Team": {
+        "QS Measure": { field: "copDetails.dateReturned", additionalFields: [] },
+        "QS for Prov COP": { field: "pimoMumbai.dateReturnedFromQs", additionalFields: [] },
+        "QS Mumbai to PIMO": { field: "qsMumbai.dateGiven", additionalFields: [] },
+      },
+      // PIMO Team mappings
+      "PIMO Team": {
+        "QS Mumbai": { field: "qsMumbai.dateGiven", additionalFields: [] },
+        "IT Team": { field: "itDept.dateGiven", additionalFields: [] },
+        "SES Team": { field: "sesDetails.dateGiven", additionalFields: [] },
+        "Ret by IT Team": { field: "pimoMumbai.dateReceivedFromIT", additionalFields: [] },
+        "Ret by SES Team": { field: "pimoMumbai.dateReturnedFromSES", additionalFields: [] },
+        "Director/Advisor/Trustee": { field: "approvalDetails.directorApproval.dateGiven", additionalFields: [] },
+        "Accounts Team": { field: "accountsDept.dateGiven", additionalFields: [] },
+        "Mark as not received": {
+          field: "pimoMumbai.dateGiven",
+          additionalFields: [
+            "pimoMumbai.dateReceived"
+          ],
+          extraUpdates: { "pimoMumbai.markReceived": false }
+        },
+      },
+      // Accounts Team mappings
+      "Accounts Team": {
+        "Booking & Checking": { field: "accountsDept.invBookingChecking", additionalFields: [] },
+        "Mark as not received": {
+          field: "accountsDept.dateGiven",
+          additionalFields: [
+            "accountsDept.dateReceived"
+          ],
+          extraUpdates: { "accountsDept.markReceived": false }
+        },
+      },
+    };
+
+    // Check if the teamName exists in our mappings
+    if (!dateFieldMappings[teamName]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid teamName: ${teamName}. Valid options are: ${Object.keys(dateFieldMappings).join(", ")}`,
+      });
+    }
+
+    // Check if the sendTo exists for the given teamName
+    if (!dateFieldMappings[teamName][sendTo]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid sendTo: ${sendTo} for team: ${teamName}. Valid options are: ${Object.keys(dateFieldMappings[teamName]).join(", ")}`,
+      });
+    }
+
+    const mapping = dateFieldMappings[teamName][sendTo];
+
+    // Build the update object
+    const updateFields = {
+      [mapping.field]: null,
+    };
+
+    // Add additional fields to clear
+    if (mapping.additionalFields && mapping.additionalFields.length > 0) {
+      for (const additionalField of mapping.additionalFields) {
+        updateFields[additionalField] = null;
+      }
+    }
+
+    // Add any extra updates (like setting boolean fields)
+    if (mapping.extraUpdates) {
+      Object.assign(updateFields, mapping.extraUpdates);
+    }
+
+    // Check if all bills exist
+    const existingBills = await Bill.find({ _id: { $in: billIds } });
+    if (existingBills.length !== billIds.length) {
+      const foundIds = existingBills.map(b => b._id.toString());
+      const missingIds = billIds.filter(id => !foundIds.includes(id));
+      return res.status(404).json({
+        success: false,
+        message: `Some bills not found: ${missingIds.join(", ")}`,
+      });
+    }
+
+    // Update all bills
+    const result = await Bill.updateMany(
+      { _id: { $in: billIds } },
+      { $set: updateFields }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully cleared dates for ${result.modifiedCount} bill(s)`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("Error in deleteDate:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete date",
+      error: error.message,
+    });
+  }
+};
+
 export default {
   createBill,
   getBill,
@@ -1696,6 +1841,7 @@ export default {
   notReceivedAccounts,
   accountsPaymentReject,
   getFilteredBills,
+  deleteDate,
 };
 
 // Method to regenerate serial numbers for all bills
