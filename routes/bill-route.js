@@ -71,4 +71,7 @@ router.post("/not-received-pimo", billController.notReceivedPimo);
 router.post("/not-received-account", billController.notReceivedAccounts);
 router.post("/reject-payment", billController.accountsPaymentReject);
 
+// Delete specific date fields based on team workflow
+router.post("/delete-date", billController.deleteDate);
+
 export default router;

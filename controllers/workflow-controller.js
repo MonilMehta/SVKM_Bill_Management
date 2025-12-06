@@ -303,7 +303,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   maxCount: Math.max(billFound.maxCount, 1),
                   "vendorFinalInv.name": toName,
                   "vendorFinalInv.dateGiven": new Date(),
-                  "qsMeasurementCheck.dateGiven": new Date(),
+                  // "qsMeasurementCheck.dateGiven": new Date(),
                 },
               },
               { new: true }
@@ -475,7 +475,7 @@ export const changeBatchWorkflowState = async (req, res) => {
             }
           );
         } else if (
-          fromRoleArray.includes("accounts") && 
+          fromRoleArray.includes("accounts") &&
           toRoleArray.includes("booking_checking")
         ) {
           billWorkflow = await Bill.findByIdAndUpdate(
