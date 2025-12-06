@@ -158,6 +158,7 @@ const billSchema = new mongoose.Schema(
       date: { type: Date },
       amount: { type: Number },
       dateReturned: { type: Date },
+      nameReturned: { type: String }, // Added to track who returned from COP
       remarks: { type: String },
     },
     remarksByQSTeam: { type: String },
@@ -167,8 +168,10 @@ const billSchema = new mongoose.Schema(
       amount: { type: Number },
       doneBy: { type: String },
       dateGiven: { type: Date },
+      name: { type: String }, // Added to track who gave to MIGO
     },
     invReturnedToSite: { type: Date },
+    invReturnedToSiteName: { type: String }, // Added to track who returned to site
     siteEngineer: {
       name: { type: String },
       dateGiven: { type: Date },
@@ -205,10 +208,13 @@ const billSchema = new mongoose.Schema(
       dateGivenPIMO2: { type: Date },
       namePIMO2: { type: String },
       dateReceivedFromIT: { type: Date },
+      nameReceivedFromIT: { type: String }, // Added for IT return tracking
       dateReceivedFromPIMO: { type: Date },
       dateReturnedFromQs: { type: Date },
+      nameReturnedFromQs: { type: String }, // Added to track who returned from QS
       dateReturnedFromDirector: { type: Date },
       dateReturnedFromSES: { type: Date }, // added for SES return tracking
+      nameReturnedFromSES: { type: String }, // Added for SES return tracking
     },
     qsMumbai: {
       name: { type: String },
