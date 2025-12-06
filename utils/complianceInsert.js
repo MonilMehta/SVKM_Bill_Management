@@ -14,7 +14,6 @@ async function insertCompliances() {
   await connectDB();
   await ComplianceMaster.deleteMany({}); // Delete all existing compliance records
   await ComplianceMaster.insertMany(compliances); // Insert new compliance records
-  console.log("Compliance master data inserted.");
   mongoose.connection.close();
 }
 

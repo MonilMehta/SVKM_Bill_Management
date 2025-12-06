@@ -26,7 +26,6 @@ const flattenBill = (bill) => {
 // This version provides basic data export without complex formatting
 export const generateExcelReport = async (billIds) => {
   const bills = await Bill.find({ _id: { $in: billIds } }).lean();
-  console.log("Total bills : ", bills.length);
   
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Bills Report");
@@ -69,7 +68,7 @@ export const generateExcelReport = async (billIds) => {
 /*
 export const generateExcelReport = async (billIds) => {
   const bills = await Bill.find({ _id: { $in: billIds } }).lean();
-  console.log("Total bills : ", bills.length);
+  // console.log("Total bills : ", bills.length);
   
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Bills Report");
@@ -255,7 +254,6 @@ export const generateExcelReport = async (billIds) => {
 // PDF Report - One bill per page with improved layout
 export const generatePDFReport = async (billIds) => {
   const bills = await Bill.find({ _id: { $in: billIds } }).lean();
-  console.log("Total bills : ", bills.length);
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
   
   let buffers = [];

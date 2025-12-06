@@ -92,7 +92,7 @@ const deleteAttachment = async (req, res, next) => {
       updatedBill,
     });
   } catch (error) {
-    console.log("Error while deleting the attachment", error);
+    console.error("Error while deleting the attachment", error);
     return res.status(400).json({
       status: false,
       message: "failed to delete the attachment",
@@ -120,7 +120,6 @@ const createBill = async (req, res) => {
 
     const attachments = [];
     if (req.files && req.files.length > 0) {
-      console.log(`Processing ${req.files.length} files for upload`);
 
       for (const file of req.files) {
         try {
@@ -130,7 +129,6 @@ const createBill = async (req, res) => {
             fileKey: uploadResult.fileKey,
             fileUrl: uploadResult.url,
           });
-          console.log(`File uploaded: ${uploadResult.fileName}`);
         } catch (uploadError) {
           console.error(
             `Error uploading file ${file.originalname}:`,
@@ -146,7 +144,6 @@ const createBill = async (req, res) => {
 
     // Create a base object with all fields initialized to null or empty objects
     const fyPrefix = getFinancialYearPrefix(new Date(req.body.billDate));
-    console.log(`[Create] Creating new bill with FY prefix: ${fyPrefix}`);
 
     // Find the highest serial number for this financial year
     const highestSerialBill = await Bill.findOne(
@@ -161,13 +158,10 @@ const createBill = async (req, res) => {
       const serialPart = parseInt(highestSerialBill.srNo.substring(4));
       nextSerial = serialPart + 1;
     }
-    console.log(
-      `[Create] Highest serial number found: ${highestSerialBill?.srNo}, next serial: ${nextSerial}`
-    );
+  
 
     const serialFormatted = nextSerial.toString().padStart(5, "0");
     const newSrNo = `${fyPrefix}${serialFormatted}`;
-    console.log(`[Create] Generated new srNo: ${newSrNo}`);
 
     // Build a bill object with all schema fields, setting null/default for missing fields
     const schemaFields = Object.keys(Bill.schema.paths);
@@ -438,7 +432,7 @@ const getBill = async (req, res) => {
     let bill;
 
     let nbill = await Bill.findById(req.params.id);
-    console.log("Bill without masters", nbill);
+
 
     bill = await Bill.findById(req.params.id)
       .populate("region")
@@ -452,8 +446,6 @@ const getBill = async (req, res) => {
         ],
       });
 
-    // console.log("Retrieved bill:" , bill);
-    console.log("Retrieved bill nature of work:", bill?.natureOfWork);
     if (!bill) {
       return res.status(404).json({ message: "Bill not found" });
     }
@@ -480,7 +472,6 @@ const getBill = async (req, res) => {
       billObj.panStatus =
         billObj.vendor.PANStatus?.name || billObj.vendor.PANStatus || null;
     }
-    console.log("Bill object vendor:", billObj.vendor);
     // Remove the vendor object itself
     delete billObj.vendor;
     res.status(200).json(billObj);
@@ -512,9 +503,7 @@ const updateBill = async (req, res) => {
 
       // If financial year has changed, we need to regenerate the serial number
       if (oldPrefix !== newPrefix) {
-        console.log(
-          `[Update] Financial year changed from ${oldPrefix} to ${newPrefix}, will regenerate srNo`
-        );
+    
         regenerateSerialNumber = true;
         // Set flag for pre-save hook to regenerate srNo
         existingBill._forceSerialNumberGeneration = true;
@@ -670,9 +659,7 @@ const patchBill = async (req, res) => {
 
       // If financial year has changed, we need to regenerate the serial number
       if (oldPrefix !== newPrefix) {
-        console.log(
-          `[Patch] Financial year changed from ${oldPrefix} to ${newPrefix}, will regenerate srNo`
-        );
+      
         regenerateSerialNumber = true;
         // Set flag for pre-save hook to regenerate srNo
         existingBill._forceSerialNumberGeneration = true;
@@ -890,7 +877,7 @@ const patchBill = async (req, res) => {
       });
     }
 
-    console.log("Applying updates:", updates);
+
 
     // Apply the updates
     const updatedBill = await Bill.findByIdAndUpdate(
@@ -1844,131 +1831,4 @@ export default {
   deleteDate,
 };
 
-// Method to regenerate serial numbers for all bills
-// export const regenerateAllSerialNumbers = async (req, res) => {
-//   try {
-//     if (!req.user || !req.user.role.includes("admin")) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Only administrators can perform this operation",
-//       });
-//     }
-
-//     const bills = await Bill.find({}).sort({ createdAt: 1 });
-
-//     console.log(`[Regenerate] Found ${bills.length} bills to process`);
-
-//     // Group bills by financial year
-//     const billsByFY = {};
-
-//     // Group each bill by financial year
-//     bills.forEach((bill) => {
-//       if (!bill.billDate) {
-//         console.log(`[Regenerate] Skipping bill ${bill._id} - no bill date`);
-//         return;
-//       }
-
-//       const fyPrefix = getFinancialYearPrefix(new Date(bill.billDate));
-
-//       if (!billsByFY[fyPrefix]) {
-//         billsByFY[fyPrefix] = [];
-//       }
-
-//       billsByFY[fyPrefix].push(bill);
-//     });
-
-//     console.log(
-//       `[Regenerate] Bills grouped by financial years: ${Object.keys(
-//         billsByFY
-//       ).join(", ")}`
-//     );
-
-//     // Process each financial year group
-//     const results = {};
-//     const errors = [];
-
-//     for (const [fyPrefix, fyBills] of Object.entries(billsByFY)) {
-//       results[fyPrefix] = {
-//         totalBills: fyBills.length,
-//         processedBills: 0,
-//         errorCount: 0,
-//       };
-
-//       // Sort bills by date within each FY
-//       fyBills.sort((a, b) => new Date(a.billDate) - new Date(b.billDate));
-
-//       // Assign new serial numbers in sequence
-//       for (let i = 0; i < fyBills.length; i++) {
-//         const bill = fyBills[i];
-
-//         try {
-//           // Store old serial number
-//           bill.srNoOld = bill.srNo || null;
-
-//           // Create new serial number
-//           const serialNumber = i + 1;
-//           const serialFormatted = serialNumber.toString().padStart(4, "0");
-//           bill.srNo = `${fyPrefix}${serialFormatted}`;
-//           g().padStart(5, "0");
-//           bill.srNo = `${fyPrefix}${serialFormatted}`;
-//           // Save bill
-//           // Save bill
-//           await bill.save();
-//           results[fyPrefix].processedBills++;
-
-//           console.log(
-//             `[Regenerate] Updated bill ${bill._id}: ${
-//               bill.srNoOld || "null"
-//             } → ${bill.srNo}`
-//           );
-//         } catch (error) {
-//           console.error(`[Regenerate] Error updating bill ${bill._id}:`, error);
-//           errors.push({ id: bill._id, error: error.message });
-//           results[fyPrefix].errorCount++;
-//         }
-//       }
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Serial number regeneration complete",
-//       results,
-//       errors: errors.length > 0 ? errors : null,
-//     });
-//   } catch (error) {
-//     console.error("[Regenerate] Error regenerating serial numbers:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to regenerate serial numbers",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// // Change the workflow state of a bill
-// export const changeWorkflowState = async (req, res) => {
-//   const { id } = req.params;
-//   const { newState } = req.body;
-//   const bill = await Bill.findById(id);
-//   if (!bill) {
-//     return res.status(404).json({
-//       success: false,
-//       message: "Bill not found",
-//     });
-//   }
-//   bill.workflowState.history.push({
-//     state: bill.workflowState.currentState,
-//     timestamp: new Date(),
-//     actor: req.body.actor,
-//     comments: req.body.comments,
-//     action: req.body.action || "forward",
-//   });
-//   bill.workflowState.currentState = newState;
-//   await bill.save();
-//   return res.status(200).json({
-//     success: true,
-//     message: "Workflow state updated successfully",
-//     bill,
-//   });
-// };
 

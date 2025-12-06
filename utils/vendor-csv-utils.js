@@ -695,7 +695,6 @@ export async function updateVendorComplianceFromExcel(filePath) {
       if (Object.keys(updateObj).length > 0) {
         await VendorMaster.updateOne({ _id: vendor._id }, { $set: updateObj });
         updated++;
-        console.log(`[VENDOR COMPLIANCE UPDATE] Updated vendor ${vendorNo} with fields:`, updateObj);
       } else {
         skipped++;
       }
