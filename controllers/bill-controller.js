@@ -1631,14 +1631,23 @@ const getFilteredBills = async (req, res) => {
           ...filter,
           currentCount: 4,
           siteStatus: { $in: ["accept", "hold"] },
-          "accountsDept.status": "Unpaid"
+          "accountsDept.paymentDate": null
         };
         break;
 
       case "qs_site":
         filter = {
           ...filter,
-          currentCount: 2
+          $and: [
+            { "pimoMumbai.dateReturnedFromQs": null },
+            {
+              $or: [
+                { "qsInspection.dateGiven": { $ne: null } },
+                { "qsCOP.dateGiven": { $ne: null } },
+                { "qsMumbai.dateGiven": { $ne: null } }
+              ]
+            }
+          ],
         };
         break;
     }
