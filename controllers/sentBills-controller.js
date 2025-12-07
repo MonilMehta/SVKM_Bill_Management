@@ -60,10 +60,12 @@ export const getBillsAboveLevel = async (req, res) => {
         case "director":
           query = {
             $and: [
-              { siteStatus: { $in: ["hold", "accept"] } },
-              { "accountsDept.status": { $eq: "Paid" } },
+              { "accountsDept.paymentDate": { $ne: null } },
             ],
           }
+          break;
+        case "qs_site":
+          query = { "pimoMumbai.dateReturnedFromQs": { $ne: null } };
           break;
       }
     }
