@@ -86,14 +86,24 @@ export const changeBatchWorkflowState = async (req, res) => {
   try {
     const { fromUser, toUser, billIds, action, remarks } = req.body;
 
-    const { id: fromId, name: fromName, role: fromRoles } = fromUser;
-    const { id: toId, name: toName, role: toRoles } = toUser;
+    // Determine sender details: Prefer req.body, fallback to req.user (Access Token)
+    let fromId = fromUser?.id;
+    let fromName = fromUser?.name;
+    let fromRoles = fromUser?.role;
 
-    const fromRoleArray = Array.isArray(fromRoles) ? fromRoles : [fromRoles];
-    const toRoleArray = Array.isArray(toRoles) ? toRoles : [toRoles];
+    if (req.user) {
+      if (!fromId) fromId = req.user.id;
+      if (!fromName) fromName = req.user.name;
+      if (!fromRoles) fromRoles = req.user.role;
+    }
+
+    const { id: toId, name: toName, role: toRoles } = toUser || {};
+
+    const fromRoleArray = Array.isArray(fromRoles) ? fromRoles : (fromRoles ? [fromRoles] : []);
+    const toRoleArray = Array.isArray(toRoles) ? toRoles : (toRoles ? [toRoles] : []);
 
     if (
-      !fromUser ||
+      (!fromId || !fromName || fromRoleArray.length === 0) || // Ensure we have sender details
       !toUser ||
       !billIds ||
       !Array.isArray(billIds) ||
@@ -102,7 +112,7 @@ export const changeBatchWorkflowState = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields or billIds must be a non-empty array",
+        message: "Missing required fields (fromUser/token, toUser) or billIds must be a non-empty array",
       });
     }
 
@@ -200,29 +210,30 @@ export const changeBatchWorkflowState = async (req, res) => {
               });
               continue;
             } else {
-           
+
               setObj["qualityEngineer.dateGiven"] = now;
               setObj["qualityEngineer.name"] = toName;
             }
           } else if (toRoleArray.includes("qs_measurement")) {
-         
+
             setObj["qsInspection.dateGiven"] = now;
             setObj["qsInspection.name"] = toName;
             setObj["maxCount"] = Math.max(billFound.maxCount, 2);
             setObj["currentCount"] = 2;
           } else if (toRoleArray.includes("qs_cop")) {
-    
+
             setObj["qsCOP.dateGiven"] = now;
             setObj["qsCOP.name"] = toName;
             setObj["maxCount"] = Math.max(billFound.maxCount, 2);
             setObj["currentCount"] = 2;
           } else if (toRoleArray.includes("migo_entry")) {
-  
+
             setObj["migoDetails.dateGiven"] = now;
-            // setObj["migoDetails.doneBy"] = toName ? toName : "";
+            setObj["migoDetails.name"] = fromName;
           } else if (toRoleArray.includes("migo_entry_return")) {
-        
+
             setObj["invReturnedToSite"] = now;
+            setObj["invReturnedToSiteName"] = fromName;
           } else if (toRoleArray.includes("site_engineer")) {
             setObj["siteEngineer.dateGiven"] = now;
             setObj["siteEngineer.name"] = toName;
@@ -290,6 +301,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   maxCount: Math.max(billFound.maxCount, 1),
                   // todo: ask milan amount ka kya scene , coz amount bhejna padega usko
                   "copDetails.dateReturned": new Date(),
+                  "copDetails.nameReturned": fromName,
                 },
               },
               { new: true }
@@ -316,6 +328,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   currentCount: 3,
                   maxCount: Math.max(billFound.maxCount, 3),
                   "pimoMumbai.dateReturnedFromQs": new Date(),
+                  "pimoMumbai.nameReturnedFromQs": fromName,
                 },
               },
               { new: true }
@@ -392,7 +405,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   currentCount: 3,
                   maxCount: Math.max(billFound.maxCount, 3),
                   "sesDetails.dateGiven": now,
-                  "sesDetails.name": toName,
+                  "sesDetails.name": fromName,
                 },
               },
               {
@@ -407,6 +420,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   currentCount: 3,
                   maxCount: Math.max(billFound.maxCount, 3),
                   "pimoMumbai.dateReceivedFromIT": now,
+                  "pimoMumbai.nameReceivedFromIT": fromName,
                 },
               },
               {
@@ -421,6 +435,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   currentCount: 3,
                   maxCount: Math.max(billFound.maxCount, 3),
                   "pimoMumbai.dateReturnedFromSES": now,
+                  "pimoMumbai.nameReturnedFromSES": fromName,
                 },
               },
               {
@@ -449,6 +464,7 @@ export const changeBatchWorkflowState = async (req, res) => {
                   currentCount: 5,
                   maxCount: Math.max(billFound.maxCount, 5),
                   "accountsDept.dateGiven": now,
+                  "accountsDept.givenBy": fromName,
                 },
               },
               {

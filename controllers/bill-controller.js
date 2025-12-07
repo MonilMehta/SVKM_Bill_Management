@@ -158,7 +158,7 @@ const createBill = async (req, res) => {
       const serialPart = parseInt(highestSerialBill.srNo.substring(4));
       nextSerial = serialPart + 1;
     }
-  
+
 
     const serialFormatted = nextSerial.toString().padStart(5, "0");
     const newSrNo = `${fyPrefix}${serialFormatted}`;
@@ -313,9 +313,49 @@ const createBill = async (req, res) => {
 
 const getBills = async (req, res) => {
   try {
-    const filter = req.user.role.includes("admin")
+    const { team_name } = req.query;
+    let filter = req.user.role.includes("admin")
       ? {}
       : { region: { $in: req.user.region } };
+
+    // Apply team-specific filters if team_name is provided
+    if (team_name) {
+      if (team_name === "qs_site") {
+        // QS Team - Home Tab Logic
+        // Include bills where:
+        // "Dt given-QS for measure" (qsInspection.dateGiven) is filled,
+        // OR if it is empty, auto-derive it by checking in order:
+        // "Dt Given-QS for Prov COP" (qsCOP.dateGiven)
+        // if still empty, "Dt given-QS Mumbai for COP" (qsMumbai.dateGiven)
+        // AND "Dt ret-PIMO by QS Mumbai" (pimoMumbai.dateReturnedFromQs) is not filled.
+
+        filter = {
+          ...filter,
+          $and: [
+            { "pimoMumbai.dateReturnedFromQs": null },
+            {
+              $or: [
+                { "qsInspection.dateGiven": { $ne: null } },
+                { "qsCOP.dateGiven": { $ne: null } },
+                { "qsMumbai.dateGiven": { $ne: null } }
+              ]
+            }
+          ]
+        };
+      } else if (team_name === "trustees") {
+        // Trustees Team - Home Tab Logic
+        // Include bills where:
+        // Status at site is "Hold" or "Accept"
+        // AND "Date of Payment" (accountsDept.paymentDate) is not filled.
+
+        filter = {
+          ...filter,
+          siteStatus: { $in: ["hold", "accept"] },
+          "accountsDept.paymentDate": null
+        };
+      }
+    }
+
     const bills = await Bill.find(filter)
       .populate("region")
       .populate("currency")
@@ -503,7 +543,7 @@ const updateBill = async (req, res) => {
 
       // If financial year has changed, we need to regenerate the serial number
       if (oldPrefix !== newPrefix) {
-    
+
         regenerateSerialNumber = true;
         // Set flag for pre-save hook to regenerate srNo
         existingBill._forceSerialNumberGeneration = true;
@@ -659,7 +699,7 @@ const patchBill = async (req, res) => {
 
       // If financial year has changed, we need to regenerate the serial number
       if (oldPrefix !== newPrefix) {
-      
+
         regenerateSerialNumber = true;
         // Set flag for pre-save hook to regenerate srNo
         existingBill._forceSerialNumberGeneration = true;

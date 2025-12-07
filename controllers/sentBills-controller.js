@@ -18,36 +18,54 @@ export const getBillsAboveLevel = async (req, res) => {
       });
     }
 
+    const { team_name } = req.query;
+
     let query;
-    switch (role) {
-      case "site_officer":
-        query = {
-          $or: [
-            { "pimoMumbai.dateReceived": { $ne: null } },
-            {
-              $and: [
-                { siteStatus: { $in: ["proforma", "reject"] } },
-                { "pimoMumbai.dateReceived": { $ne: null } },
-                { "accountsDept.paymentDate": { $ne: null } },
-              ],
-            },
-          ],
-        };
-        break;
-      case "site_pimo":
-        query = { "accountsDept.dateReceived": { $ne: null } };
-        break;
-      case "accounts":
+
+    if (team_name) {
+      if (team_name === "qs_site") {
+        // QS Team - Forwarded Tab Logic
+        // Include bills where "Dt ret-PIMO by QS Mumbai" is filled.
+        query = { "pimoMumbai.dateReturnedFromQs": { $ne: null } };
+      } else if (team_name === "trustees") {
+        // Trustees Team - Forwarded Tab Logic
+        // Include bills where "Date of Payment" is filled.
         query = { "accountsDept.paymentDate": { $ne: null } };
-        break;
-      case "director":
-        query = {
-          $and: [
-            { siteStatus: { $in: ["hold", "accept"] } },
-            { "accountsDept.status": { $eq: "Paid" } },
-          ],
-        }
-        break;
+      }
+    }
+
+    // specific role based filtering if team_name is not provided
+    if (!query) {
+      switch (role) {
+        case "site_officer":
+          query = {
+            $or: [
+              { "pimoMumbai.dateReceived": { $ne: null } },
+              {
+                $and: [
+                  { siteStatus: { $in: ["proforma", "reject"] } },
+                  { "pimoMumbai.dateReceived": { $ne: null } },
+                  { "accountsDept.paymentDate": { $ne: null } },
+                ],
+              },
+            ],
+          };
+          break;
+        case "site_pimo":
+          query = { "accountsDept.dateReceived": { $ne: null } };
+          break;
+        case "accounts":
+          query = { "accountsDept.paymentDate": { $ne: null } };
+          break;
+        case "director":
+          query = {
+            $and: [
+              { siteStatus: { $in: ["hold", "accept"] } },
+              { "accountsDept.status": { $eq: "Paid" } },
+            ],
+          }
+          break;
+      }
     }
 
     const bills = await Bill.find(query)
