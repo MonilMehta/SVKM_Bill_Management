@@ -4,7 +4,15 @@ import fs from 'fs';
 import VendorMaster from '../models/vendor-master-model.js';
 import ComplianceMaster from '../models/compliance-master-model.js';
 import PanStatusMaster from '../models/pan-status-master-model.js';
-import { vendorHeaderMapping } from './headerMap.js'; // Import centralized vendor header mapping
+import {
+  vendorHeaderMapping,
+  vendorPhoneHeaders,
+  vendorEmailHeaders,
+  vendorAddl1Headers,
+  vendorAddl2Headers,
+  vendorNoHeaders,
+  vendorGSTHeaders
+} from './headerMap.js'; // Import centralized vendor header mapping
 
 /**
  * Maps reference values for compliance and PAN status
@@ -606,20 +614,22 @@ export async function updateVendorComplianceFromExcel(filePath) {
     try {
       // Extract vendor identifier
       let vendorNo;
-      if (rowData['Vendor no'] !== undefined) {
-        vendorNo = typeof rowData['Vendor no'] === 'string'
-          ? parseInt(rowData['Vendor no'].replace(/[^\d]/g, ''), 10)
-          : rowData['Vendor no'];
-      } else if (rowData['Vendor No'] !== undefined) {
-        vendorNo = typeof rowData['Vendor No'] === 'string'
-          ? parseInt(rowData['Vendor No'].replace(/[^\d]/g, ''), 10)
-          : rowData['Vendor No'];
+      let rawVendorNo;
+      for (const header of vendorNoHeaders) {
+        if (rowData[header] !== undefined && rowData[header] !== null) {
+          rawVendorNo = rowData[header];
+          vendorNo = typeof rowData[header] === 'string'
+            ? parseInt(rowData[header].replace(/[^\d]/g, ''), 10)
+            : rowData[header];
+
+          if (vendorNo && !isNaN(vendorNo)) break;
+        }
       }
 
       if (!vendorNo || isNaN(vendorNo)) {
         errors.push({
           row: rowNumber,
-          error: `Invalid or missing vendor number: ${rowData['Vendor no'] || rowData['Vendor No']}`
+          error: `Invalid or missing vendor number: ${rawVendorNo}`
         });
         skipped++;
         continue;
@@ -660,17 +670,18 @@ export async function updateVendorComplianceFromExcel(filePath) {
       }
 
       // Process GST Number if available
-      if ((rowData['GST Number'] !== undefined && rowData['GST Number'] !== null) ||
-        (rowData['GST No'] !== undefined && rowData['GST No'] !== null)) {
-        const gstNumber = rowData['GST Number'] || rowData['GST No'];
-        if (gstNumber) {
-          updateObj.GSTNumber = gstNumber.toString().trim();
+      for (const header of vendorGSTHeaders) {
+        if (rowData[header] !== undefined && rowData[header] !== null) {
+          const gstNumber = rowData[header];
+          if (gstNumber) {
+            updateObj.GSTNumber = gstNumber.toString().trim();
+            break;
+          }
         }
       }
 
       // Process Email
-      const emailHeaders = ['Email', 'Email ID', 'Email IDs', 'EmailId', 'Email Address', 'Email ids'];
-      for (const header of emailHeaders) {
+      for (const header of vendorEmailHeaders) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const rawValue = extractCellValue(rowData[header]);
           const emailValue = rawValue.toString().trim();
@@ -685,10 +696,7 @@ export async function updateVendorComplianceFromExcel(filePath) {
       }
 
       // Process Phone No
-      const phoneHeaders = [
-        'Phone', 'Phone No', 'Phone No.', 'Phone Number', 'Phone Numbers', 'Mobile', 'Mobile No', 'Mobile Number', 'Phone no'
-      ];
-      for (const header of phoneHeaders) {
+      for (const header of vendorPhoneHeaders) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const rawValue = extractCellValue(rowData[header]);
           const phoneValue = rawValue.toString().trim();
@@ -703,8 +711,7 @@ export async function updateVendorComplianceFromExcel(filePath) {
       }
 
       // Process Addl 1 - support multiple header variations
-      const addl1Headers = ['Addl 1', 'Addl1', 'Additional 1', 'Additional1'];
-      for (const header of addl1Headers) {
+      for (const header of vendorAddl1Headers) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const addl1Value = rowData[header].toString().trim();
           if (addl1Value) {
@@ -715,8 +722,7 @@ export async function updateVendorComplianceFromExcel(filePath) {
       }
 
       // Process Addl 2 - support multiple header variations
-      const addl2Headers = ['Addl 2', 'Addl2', 'Additional 2', 'Additional2'];
-      for (const header of addl2Headers) {
+      for (const header of vendorAddl2Headers) {
         if (rowData[header] !== undefined && rowData[header] !== null) {
           const addl2Value = rowData[header].toString().trim();
           if (addl2Value) {

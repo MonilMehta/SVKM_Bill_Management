@@ -499,3 +499,37 @@ export const vendorHeaderMapping = {
   "Mobile No": "phoneNumbers",
   "Mobile Number": "phoneNumbers"
 };
+
+// Derived helper arrays for specific vendor fields
+// These are useful for iteration when checks need to be fuzzy or prioritized
+export const vendorPhoneHeaders = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "phoneNumbers")
+  .map(([key, _]) => key);
+
+export const vendorEmailHeaders = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "emailIds")
+  .map(([key, _]) => key);
+
+export const vendorAddl1Headers = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "addl1")
+  .map(([key, _]) => key);
+
+export const vendorAddl2Headers = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "addl2")
+  .map(([key, _]) => key);
+
+export const vendorNoHeaders = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "vendorNo")
+  .map(([key, _]) => key);
+
+export const vendorGSTHeaders = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "GSTNumber")
+  .map(([key, _]) => key);
+
+export const vendorComplianceHeaders = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "complianceStatus")
+  .map(([key, _]) => key);
+
+export const vendorPANStatusHeaders = Object.entries(vendorHeaderMapping)
+  .filter(([_, value]) => value === "PANStatus")
+  .map(([key, _]) => key);

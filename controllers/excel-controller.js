@@ -195,7 +195,7 @@ const importBills = async (req, res) => {
 
     // Check if we should skip vendor validation
     const skipVendorValidation = await shouldSkipVendorValidation();
-    
+
 
     // Extract vendor numbers from Excel/CSV before processing
     // This allows us to validate vendors first
@@ -247,9 +247,9 @@ const importBills = async (req, res) => {
 
           // Extract vendor numbers and names for reference
           if (vendorNoColIdx > 0) {
-   
+
             if (vendorNameColIdx > 0) {
-              
+
             }
 
             worksheet.eachRow((row, rowNumber) => {
@@ -269,7 +269,7 @@ const importBills = async (req, res) => {
         try {
           // Count total vendors in database first
           const totalVendorsInDB = await VendorMaster.countDocuments();
-   
+
 
           if (totalVendorsInDB === 0) {
 
@@ -281,9 +281,9 @@ const importBills = async (req, res) => {
 
             // Extract vendor names for validation
             validVendorNames = allVendors.map(v => v.vendorName || '');
-          
 
-            
+
+
 
             if (validVendorNames.length === 0) {
               // Try to get a sample of vendors to debug
@@ -298,7 +298,7 @@ const importBills = async (req, res) => {
         console.error('Error pre-validating vendors:', error);
         skipVendorValidation = true;
       }
-    } else {;
+    } else {
       skipVendorValidation = true;
     }
 
@@ -490,7 +490,7 @@ const patchBillsFromExcel = async (req, res) => {
     const uploadedFile = req.files[0];
     const tempDir = os.tmpdir();
     const tempFilePath = path.join(tempDir, uploadedFile.originalname);
-    
+
     fs.writeFileSync(tempFilePath, uploadedFile.buffer);
 
     // Call the patch logic with team name
@@ -584,7 +584,7 @@ const importVendors = async (req, res) => {
     }
 
     const importResult = await insertVendorsFromExcel(tempFilePath);
-  
+
     if (fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
     }
@@ -615,7 +615,7 @@ const importVendors = async (req, res) => {
 };
 
 // Function to update only compliance and PAN status for vendors
-const updateVendorCompliance = async (req, res) => {
+const updateVendors = async (req, res) => {
   try {
     await runUpload(req, res);
 
@@ -653,7 +653,7 @@ const updateVendorCompliance = async (req, res) => {
       headers.push((cell.value || '').toString().trim());
     });
 
-    const requiredHeaders = ['Vendor No', 'Vendor Name', 'PAN Status', '206AB Compliance'];
+    const requiredHeaders = ['Vendor No'];
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
     if (missingHeaders.length > 0) {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
@@ -729,7 +729,7 @@ export default {
   importBills,
   patchBillsFromExcel,
   importVendors,
-  updateVendorCompliance
+  updateVendors
   // fixBillSerialNumbers,
   // bulkFixSerialNumbers
 };

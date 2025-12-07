@@ -13,7 +13,7 @@ router.post("/patch-bills", excelController.patchBillsFromExcel);
 
 // Vendor master routes
 router.post("/import-vendors", excelController.importVendors);
-router.post("/update-vendor", excelController.updateVendorCompliance);
+router.post("/update-vendor", excelController.updateVendors);
 
 // // New route for fixing bill serial numbers
 // router.post("/fix-serial-numbers", reportController.fixBillSerialNumbers);
