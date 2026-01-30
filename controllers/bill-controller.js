@@ -1745,6 +1745,7 @@ const deleteDate = async (req, res) => {
         "Site Architect": { field: "architect.dateGiven", additionalFields: [] },
         "Site Incharge": { field: "siteIncharge.dateGiven", additionalFields: [] },
         "MIGO Team": { field: "migoDetails.dateGiven", additionalFields: [] },
+        "Migo done by": { field: "migoDetails.doneBy", additionalFields: [] },
         "Ret Site aft MIGO": { field: "invReturnedToSite", additionalFields: [] },
         "Site Dispatch": { field: "siteOfficeDispatch.dateGiven", additionalFields: [] },
         "PIMO Team": { field: "pimoMumbai.dateGiven", additionalFields: [] },
