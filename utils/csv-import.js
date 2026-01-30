@@ -149,6 +149,10 @@ async function findDuplicateByUniqueness(billData, rowNumber) {
     return null;
   }
 
+  if (billData.natureOfWork === "Advance/LC/BG" || billData.typeOfInv === "Advance/LC/BG") {
+    return null;
+  }
+
   const uniquenessQuery = {};
 
   if (billData.vendorNo) uniquenessQuery.vendorNo = billData.vendorNo;
