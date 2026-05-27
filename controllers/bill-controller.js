@@ -1736,19 +1736,36 @@ const getFilteredBills = async (req, res) => {
         bDateVal = b.billDate;
       }
 
-      // Truncate times for accurate "same day" comparison
-      const dateA = aDateVal ? new Date(new Date(aDateVal).setHours(0, 0, 0, 0)).getTime() : 0;
-      const dateB = bDateVal ? new Date(new Date(bDateVal).setHours(0, 0, 0, 0)).getTime() : 0;
+      // Helper to format date strictly to IST 'YYYY-MM-DD' so it matches what the user sees
+      const getISTDateString = (dateVal) => {
+        if (!dateVal) return "";
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return "";
+        const localD = new Date(d.getTime() + 330 * 60000); // Add IST offset
+        return localD.toISOString().split('T')[0];
+      };
+
+      const dateA = getISTDateString(aDateVal);
+      const dateB = getISTDateString(bDateVal);
 
       if (dateA !== dateB) {
-        return dateB - dateA; // Descending date
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateB.localeCompare(dateA); // Descending date
       }
 
       // Tiebreaker: srNo descending
-      const aSrNo = a.srNo ? String(a.srNo) : "";
-      const bSrNo = b.srNo ? String(b.srNo) : "";
+      const aSrNo = a.srNo || "";
+      const bSrNo = b.srNo || "";
       
-      return bSrNo.localeCompare(aSrNo);
+      const aNum = Number(aSrNo);
+      const bNum = Number(bSrNo);
+
+      if (!isNaN(aNum) && !isNaN(bNum) && aSrNo !== "" && bSrNo !== "") {
+        return bNum - aNum;
+      }
+      
+      return String(bSrNo).localeCompare(String(aSrNo));
     });
 
     res.status(200).json(mappedBills);

@@ -5,6 +5,7 @@ const roleLevelMap = {
   site_pimo: 3,
   director: 4,
   accounts: 5,
+  qs_site: 2
 };
 
 export const getBillsAboveLevel = async (req, res) => {
@@ -103,6 +104,65 @@ export const getBillsAboveLevel = async (req, res) => {
       delete billObj.vendor;
       return billObj;
     });
+
+    // Custom sorting in JS to truncate time, ensuring srNo tiebreaker works correctly for bills on the same day.
+    mappedBills.sort((a, b) => {
+      let aDateVal, bDateVal;
+      
+      const effectiveRole = team_name || role;
+
+      if (effectiveRole === "site_officer") {
+        aDateVal = a.pimoMumbai?.dateGiven;
+        bDateVal = b.pimoMumbai?.dateGiven;
+      } else if (effectiveRole === "qs_site") {
+        aDateVal = a.pimoMumbai?.dateReturnedFromQs;
+        bDateVal = b.pimoMumbai?.dateReturnedFromQs;
+      } else if (effectiveRole === "site_pimo") {
+        aDateVal = a.accountsDept?.dateGiven;
+        bDateVal = b.accountsDept?.dateGiven;
+      } else if (effectiveRole === "director" || effectiveRole === "trustees" || effectiveRole === "accounts") {
+        aDateVal = a.accountsDept?.paymentDate;
+        bDateVal = b.accountsDept?.paymentDate;
+      } else if(effectiveRole === "accounts") {
+        aDateVal = a.accountsDept?.paymentDate;
+        bDateVal = b.accountsDept?.paymentDate;
+      }
+
+      // Helper to format date strictly to IST 'YYYY-MM-DD' so it matches what the user sees
+      const getISTDateString = (dateVal) => {
+        if (!dateVal) return "";
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return "";
+        const localD = new Date(d.getTime() + 330 * 60000); // Add IST offset
+        return localD.toISOString().split('T')[0];
+      };
+
+      const dateA = getISTDateString(aDateVal);
+      const dateB = getISTDateString(bDateVal);
+
+      if (dateA !== dateB) {
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateB.localeCompare(dateA); // Descending date
+      }
+
+      // Tiebreaker: srNo descending
+      const aSrNo = a.srNo || "";
+      const bSrNo = b.srNo || "";
+      
+      const aNum = Number(aSrNo);
+      const bNum = Number(bSrNo);
+
+      console.log(": aNum", aNum)
+      console.log("bNum: ", bNum)
+
+      if (!isNaN(aNum) && !isNaN(bNum) && aSrNo !== "" && bSrNo !== "") {
+        return bNum - aNum;
+      }
+      
+      return String(bSrNo).localeCompare(String(aSrNo));
+    });
+
     return res.status(200).json({
       success: true,
       data: mappedBills,
