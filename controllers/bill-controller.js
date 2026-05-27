@@ -1157,8 +1157,21 @@ const filterBills = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const role = req.query.role;
+    let sortOptions = [["billDate", -1], ["srNo", -1]];
+
+    if (role === "site_officer" || role === "director") {
+      sortOptions = [["taxInvRecdAtSite", -1], ["srNo", -1]];
+    } else if (role === "qs_site") {
+      sortOptions = [["qsInspection.dateGiven", -1], ["srNo", -1]];
+    } else if (role === "site_pimo") {
+      sortOptions = [["pimoMumbai.dateReceived", -1], ["srNo", -1]];
+    } else if (role === "accounts") {
+      sortOptions = [["accountsDept.dateReceived", -1], ["srNo", -1]];
+    }
+
     const bills = await Bill.find(query)
-      .sort({ billDate: -1 })
+      .sort(sortOptions)
       .skip(skip)
       .limit(limit);
 
@@ -1652,7 +1665,20 @@ const getFilteredBills = async (req, res) => {
         break;
     }
 
+    let sortOptions = { billDate: -1, srNo: -1 };
+
+    if (role === "site_officer" || role === "director") {
+      sortOptions = { taxInvRecdAtSite: -1, srNo: -1 };
+    } else if (role === "qs_site") {
+      sortOptions = { "qsInspection.dateGiven": -1, srNo: -1 };
+    } else if (role === "site_pimo") {
+      sortOptions = { "pimoMumbai.dateReceived": -1, srNo: -1 };
+    } else if (role === "accounts") {
+      sortOptions = { "accountsDept.dateReceived": -1, srNo: -1 };
+    }
+
     const bills = await Bill.find(filter)
+      .sort(sortOptions)
       .populate("region")
       .populate("currency")
       .populate("natureOfWork")
