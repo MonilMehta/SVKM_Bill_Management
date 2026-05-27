@@ -1170,21 +1170,7 @@ const filterBills = async (req, res) => {
       sortOptions = [["accountsDept.dateReceived", -1], ["srNo", -1]];
     }
 
-    const role = req.query.role;
-    let sortOptions = [["billDate", -1], ["srNo", -1]];
-
-    if (role === "site_officer" || role === "director") {
-      sortOptions = [["taxInvRecdAtSite", -1], ["srNo", -1]];
-    } else if (role === "qs_site") {
-      sortOptions = [["qsInspection.dateGiven", -1], ["srNo", -1]];
-    } else if (role === "site_pimo") {
-      sortOptions = [["pimoMumbai.dateReceived", -1], ["srNo", -1]];
-    } else if (role === "accounts") {
-      sortOptions = [["accountsDept.dateReceived", -1], ["srNo", -1]];
-    }
-
     const bills = await Bill.find(query)
-      .sort(sortOptions)
       .sort(sortOptions)
       .skip(skip)
       .limit(limit);
