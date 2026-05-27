@@ -1157,8 +1157,21 @@ const filterBills = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const role = req.query.role;
+    let sortOptions = [["billDate", -1], ["srNo", -1]];
+
+    if (role === "site_officer" || role === "director") {
+      sortOptions = [["taxInvRecdAtSite", -1], ["srNo", -1]];
+    } else if (role === "qs_site") {
+      sortOptions = [["qsInspection.dateGiven", -1], ["srNo", -1]];
+    } else if (role === "site_pimo") {
+      sortOptions = [["pimoMumbai.dateReceived", -1], ["srNo", -1]];
+    } else if (role === "accounts") {
+      sortOptions = [["accountsDept.dateReceived", -1], ["srNo", -1]];
+    }
+
     const bills = await Bill.find(query)
-      .sort({ billDate: -1 })
+      .sort(sortOptions)
       .skip(skip)
       .limit(limit);
 
@@ -1652,7 +1665,20 @@ const getFilteredBills = async (req, res) => {
         break;
     }
 
+    let sortOptions = { billDate: -1, srNo: -1 };
+
+    if (role === "site_officer" || role === "director") {
+      sortOptions = { taxInvRecdAtSite: -1, srNo: -1 };
+    } else if (role === "qs_site") {
+      sortOptions = { "qsInspection.dateGiven": -1, srNo: -1 };
+    } else if (role === "site_pimo") {
+      sortOptions = { "pimoMumbai.dateReceived": -1, srNo: -1 };
+    } else if (role === "accounts") {
+      sortOptions = { "accountsDept.dateReceived": -1, srNo: -1 };
+    }
+
     const bills = await Bill.find(filter)
+      .sort(sortOptions)
       .populate("region")
       .populate("currency")
       .populate("natureOfWork")
@@ -1689,6 +1715,42 @@ const getFilteredBills = async (req, res) => {
       delete billObj.vendor;
       return billObj;
     });
+
+    // Custom sorting in JS to truncate time, ensuring srNo tiebreaker works correctly for bills on the same day.
+    mappedBills.sort((a, b) => {
+      let aDateVal, bDateVal;
+      if (role === "site_officer" || role === "director") {
+        aDateVal = a.taxInvRecdAtSite;
+        bDateVal = b.taxInvRecdAtSite;
+      } else if (role === "qs_site") {
+        aDateVal = a.qsInspection?.dateGiven;
+        bDateVal = b.qsInspection?.dateGiven;
+      } else if (role === "site_pimo") {
+        aDateVal = a.pimoMumbai?.dateReceived;
+        bDateVal = b.pimoMumbai?.dateReceived;
+      } else if (role === "accounts") {
+        aDateVal = a.accountsDept?.dateReceived;
+        bDateVal = b.accountsDept?.dateReceived;
+      } else {
+        aDateVal = a.billDate;
+        bDateVal = b.billDate;
+      }
+
+      // Truncate times for accurate "same day" comparison
+      const dateA = aDateVal ? new Date(new Date(aDateVal).setHours(0, 0, 0, 0)).getTime() : 0;
+      const dateB = bDateVal ? new Date(new Date(bDateVal).setHours(0, 0, 0, 0)).getTime() : 0;
+
+      if (dateA !== dateB) {
+        return dateB - dateA; // Descending date
+      }
+
+      // Tiebreaker: srNo descending
+      const aSrNo = a.srNo ? String(a.srNo) : "";
+      const bSrNo = b.srNo ? String(b.srNo) : "";
+      
+      return bSrNo.localeCompare(aSrNo);
+    });
+
     res.status(200).json(mappedBills);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -1880,5 +1942,3 @@ export default {
   getFilteredBills,
   deleteDate,
 };
-
-
