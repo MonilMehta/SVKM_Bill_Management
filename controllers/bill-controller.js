@@ -1677,20 +1677,7 @@ const getFilteredBills = async (req, res) => {
       sortOptions = { "accountsDept.dateReceived": -1, srNo: -1 };
     }
 
-    let sortOptions = { billDate: -1, srNo: -1 };
-
-    if (role === "site_officer" || role === "director") {
-      sortOptions = { taxInvRecdAtSite: -1, srNo: -1 };
-    } else if (role === "qs_site") {
-      sortOptions = { "qsInspection.dateGiven": -1, srNo: -1 };
-    } else if (role === "site_pimo") {
-      sortOptions = { "pimoMumbai.dateReceived": -1, srNo: -1 };
-    } else if (role === "accounts") {
-      sortOptions = { "accountsDept.dateReceived": -1, srNo: -1 };
-    }
-
     const bills = await Bill.find(filter)
-      .sort(sortOptions)
       .sort(sortOptions)
       .populate("region")
       .populate("currency")
@@ -1749,36 +1736,19 @@ const getFilteredBills = async (req, res) => {
         bDateVal = b.billDate;
       }
 
-      // Helper to format date strictly to IST 'YYYY-MM-DD' so it matches what the user sees
-      const getISTDateString = (dateVal) => {
-        if (!dateVal) return "";
-        const d = new Date(dateVal);
-        if (isNaN(d.getTime())) return "";
-        const localD = new Date(d.getTime() + 330 * 60000); // Add IST offset
-        return localD.toISOString().split('T')[0];
-      };
-
-      const dateA = getISTDateString(aDateVal);
-      const dateB = getISTDateString(bDateVal);
+      // Truncate times for accurate "same day" comparison
+      const dateA = aDateVal ? new Date(new Date(aDateVal).setHours(0, 0, 0, 0)).getTime() : 0;
+      const dateB = bDateVal ? new Date(new Date(bDateVal).setHours(0, 0, 0, 0)).getTime() : 0;
 
       if (dateA !== dateB) {
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return dateB.localeCompare(dateA); // Descending date
+        return dateB - dateA; // Descending date
       }
 
       // Tiebreaker: srNo descending
-      const aSrNo = a.srNo || "";
-      const bSrNo = b.srNo || "";
+      const aSrNo = a.srNo ? String(a.srNo) : "";
+      const bSrNo = b.srNo ? String(b.srNo) : "";
       
-      const aNum = Number(aSrNo);
-      const bNum = Number(bSrNo);
-
-      if (!isNaN(aNum) && !isNaN(bNum) && aSrNo !== "" && bSrNo !== "") {
-        return bNum - aNum;
-      }
-      
-      return String(bSrNo).localeCompare(String(aSrNo));
+      return bSrNo.localeCompare(aSrNo);
     });
 
     res.status(200).json(mappedBills);
