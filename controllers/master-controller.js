@@ -320,8 +320,21 @@ const masterController = {
   async createNatureOfWork(req, res) {
     try {
       const NatureOfWork = (await import('../models/nature-of-work-master-model.js')).default;
+      
+      const normalizedName = req.body.natureOfWork?.trim().toLowerCase();
+      const existingNatureOfWork = await NatureOfWork.findOne({
+        natureOfWork: { $regex: new RegExp(`^${normalizedName}$`, 'i') }
+      });
+      
+      if (existingNatureOfWork) {
+        return res.status(400).json({
+          error: 'This Nature of Work already exists'
+        });
+      }
+      
       const natureOfWork = new NatureOfWork(req.body);
       await natureOfWork.save();
+      
       res.status(201).json(natureOfWork);
     } catch (err) {
       res.status(400).json({ error: err.message });
