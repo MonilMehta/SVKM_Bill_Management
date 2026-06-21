@@ -633,7 +633,7 @@ export const getInvoicesPaid = async (req, res) => {
       taxInvDate: formatDate(invoice?.taxInvDate) || "",
       taxInvAmt: invoice.taxInvAmt,
       copAmount: invoice.copDetails?.amount || "",
-      payentAmt: invoice.amount || "",
+      payentAmt: invoice.accountsDept?.paymentAmt || "",
     }));
     // Prepare the final response
     const totalTaxInvAmt = reportData.reduce(
