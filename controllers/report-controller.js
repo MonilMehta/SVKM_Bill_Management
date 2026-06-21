@@ -607,7 +607,7 @@ export const getInvoicesPaid = async (req, res) => {
 
     // Fetch bills from database, sort by vendor name first, then by sr no
     const invoices = await Bill.find(filter)
-      .sort({ "accountsDept.paymentDate": 1 })
+      .sort({ "accountsDept.paymentDate": -1 })
       .populate("vendor");
 
     let reportData = [];
