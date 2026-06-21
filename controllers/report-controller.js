@@ -596,6 +596,10 @@ export const getInvoicesPaid = async (req, res) => {
       };
     }
 
+    if (region) {
+      filter["region"] = region;
+    }
+
     if (f110Identification) {
       filter["f110Identification"] = f110Identification;
     }
