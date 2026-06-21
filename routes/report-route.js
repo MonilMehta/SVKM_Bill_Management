@@ -3,6 +3,7 @@ const router = express.Router();
 import { authenticate, authorize } from "../middleware/middleware.js";
 import {
   getOutstandingBillsReport,
+  getOutstandingBillsSubtotalReport,
   getInvoicesReceivedAtSite,
   getInvoicesCourierToPIMOMumbai,
   getInvoicesReceivedAtPIMOMumbai,
@@ -11,6 +12,7 @@ import {
   getInvoicesPaid,
   getPendingBillsReport,
   getBillJourney,
+  getBillKidharReport,
   getInvoicesAtQSforProvCOP,
   getInvoicesAtQSMumbai,
   getInvoicesReturnedByQsSite,
@@ -18,120 +20,124 @@ import {
   getInvoicesReturnedByQSMumbai,
 } from "../controllers/report-controller.js";
 
-// Authentication middleware for all routes
 router.use(authenticate);
 
-//gets all outstanding bills
+const DIRECTOR_ROLES = ["director", "admin"];
+const ACCOUNTS_ROLES = ["accounts", ...DIRECTOR_ROLES];
+const PIMO_ROLES = ["pimo_mumbai", ...DIRECTOR_ROLES];
+const SITE_ROLES = ["site_officer", "site_pimo", ...PIMO_ROLES];
+const QS_ROLES = ["qs_site", "qs_mumbai", "admin"];
+
+// 12. Outstanding Bills Report
 router.get(
   "/outstanding-bills",
-  authorize(["accounts", "director", "admin"]),
+  authorize(ACCOUNTS_ROLES),
   getOutstandingBillsReport
 );
 
-//gets all invoices at site
+// 13. Outstanding Bills Report Subtotal
+router.get(
+  "/outstanding-bills-subtotal",
+  authorize(ACCOUNTS_ROLES),
+  getOutstandingBillsSubtotalReport
+);
+
+// 1. Invoices at Site
 router.get(
   "/invoices-received-at-site",
-  authorize(["site_officer", "site_pimo", "admin", "director", "pimo_mumbai"]),
+  authorize(["site_officer", "site_pimo", "pimo_mumbai", "director", "admin"]),
   getInvoicesReceivedAtSite
 );
-//gets all invoices at PIMO MUMBAI
+
+// 2. Invoices at PIMO
 router.get(
   "/invoices-received-at-pimo-mumbai",
-  authorize(["pimo_mumbai", "director", "admin"]),
+  authorize(PIMO_ROLES),
   getInvoicesReceivedAtPIMOMumbai
 );
-//gets all invoices at QS for measurement
+
+// 3. Invoices with QS Site for Measurement
 router.get(
   "/invoices-received-at-qsmeasurement",
-  authorize([
-    "site_pimo",
-    "site_officer",
-    "qs_site",
-    "qs_mumbai",
-    "pimo_mumbai",
-    "admin",
-  ]),
+  authorize([...SITE_ROLES, ...QS_ROLES]),
   getInvoicesGivenToQsSite
 );
-//gets all invoices at QS for Prov COP
+
+// 4. Invoices with QS Site for Prov COP
 router.get(
   "/invoices-received-at-qscop",
-  authorize([
-    "site_pimo",
-    "site_officer",
-    "qs_site",
-    "qs_mumbai",
-    "pimo_mumbai",
-    "admin",
-  ]),
+  authorize([...SITE_ROLES, ...QS_ROLES]),
   getInvoicesAtQSforProvCOP
 );
-//gets all invoices at QS Mumbai for COP
+
+// 5. Invoices with QS Mumbai for COP
 router.get(
   "/invoices-received-at-qsmumbai",
-  authorize(["qs_site", "qs_mumbai", "pimo_mumbai", "admin"]),
+  authorize([...QS_ROLES, "pimo_mumbai"]),
   getInvoicesAtQSMumbai
 );
 
-//gets all invoices sent to PIMO Mumbai
+// 6. Invoices Sent to PIMO Mumbai
 router.get(
   "/invoices-courier-to-pimo-mumbai",
   authorize(["site_officer", "site_pimo", "pimo_mumbai", "admin"]),
   getInvoicesCourierToPIMOMumbai
 );
-//get all invoices returned by QS measurement
+
+// 7. Invoices Returned by QS Site after Measurement
 router.get(
   "/invoices-returned-by-qsmeasurement",
-  authorize(["qs_site", "qs_mumbai", "admin"]),
+  authorize(QS_ROLES),
   getInvoicesReturnedByQsSite
 );
-//get all invoices returned by QS COP
+
+// 8. Invoices Returned by QS Site after Prov COP
 router.get(
   "/invoices-returned-by-qscop",
-  authorize(["qs_site", "qs_mumbai", "admin"]),
+  authorize(QS_ROLES),
   getInvoicesReturnedByQsCOP
 );
-//get all invoices returned by QS Mumbai
+
+// 9. Invoices Returned by QS Mumbai after COP
 router.get(
   "/invoices-returned-by-qsmumbai",
-  authorize(["qs_site", "qs_mumbai", "admin"]),
+  authorize(QS_ROLES),
   getInvoicesReturnedByQSMumbai
 );
-//get all invoices given too accounts
+
+// 10. Invoices Sent to Accts Team
 router.get(
   "/invoices-given-to-accounts",
-  authorize(["pimo_mumbai", "admin"]),
+  authorize(PIMO_ROLES),
   getInvoicesGivenToAcctsDept
 );
-//gget all invoices paid
+
+// 11. Invoices Paid
 router.get(
   "/invoices-Paid",
-  authorize(["accounts", "director", "admin"]),
+  authorize(ACCOUNTS_ROLES),
   getInvoicesPaid
 );
+
+// 14. Bill Kidhar Report
+router.get(
+  "/bill-kidhar",
+  authorize([...PIMO_ROLES, "accounts"]),
+  getBillKidharReport
+);
+
+// 15. Bill Journey Report
+router.get(
+  "/bill-journey",
+  authorize([...PIMO_ROLES, "accounts"]),
+  getBillJourney
+);
+
+// Legacy pending bills endpoint
 router.get(
   "/pending-bills",
   authorize(["admin", "site_officer", "site_pimo", "qs_site", "pimo_mumbai"]),
   getPendingBillsReport
-);
-
-/**
- * @route GET /api/reports/bill-journey
- * @desc Get report of bills journey through the processing workflow
- * @access Private (All authorized users)
- */
-router.get(
-  "/bill-journey",
-  authorize([
-    "admin",
-    "site_officer",
-    "site_pimo",
-    "qs_site",
-    "pimo_mumbai",
-    "director",
-    "accounts",
-  ]),
-  getBillJourney
 );
 
 export default router;
