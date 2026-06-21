@@ -73,8 +73,8 @@ export const getOutstandingBillsReport = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     sortedVendorNames.forEach((vendorName) => {
@@ -254,8 +254,8 @@ export const getInvoicesReceivedAtSite = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesReceivedAtSite.map((invoice) => ({
@@ -336,7 +336,7 @@ export const getInvoicesReceivedAtPIMOMumbai = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
- 
+
     let reportData = [];
 
     // Format date strings properly
@@ -346,8 +346,8 @@ export const getInvoicesReceivedAtPIMOMumbai = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesReceivedAtMumbai.map((invoice) => ({
@@ -440,8 +440,8 @@ export const getInvoicesCourierToPIMOMumbai = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesCourierToMumbai.map((invoice) => ({
@@ -527,8 +527,8 @@ export const getInvoicesGivenToAcctsDept = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesGivenToAcctsDept.map((invoice) => ({
@@ -619,8 +619,8 @@ export const getInvoicesPaid = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoices.map((invoice) => ({
@@ -645,7 +645,7 @@ export const getInvoicesPaid = async (req, res) => {
       0
     );
     const totalPaymentAmt = reportData.reduce(
-      (sum, item) => sum + (Number(item.paymentAmt) || 0),
+      (sum, item) => sum + (Number(item.payentAmt) || 0),
       0
     );
     let count = reportData.length;
@@ -711,7 +711,7 @@ export const getInvoicesGivenToQsSite = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
-  
+
 
     let reportData = [];
 
@@ -721,8 +721,8 @@ export const getInvoicesGivenToQsSite = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesGivenToQsSite.map((invoice) => ({
@@ -809,8 +809,8 @@ export const getInvoicesAtQSforProvCOP = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesGivenToQsCOP.map((invoice) => ({
@@ -894,8 +894,8 @@ export const getInvoicesAtQSMumbai = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesAtQsMumbai.map((invoice) => ({
@@ -974,7 +974,7 @@ export const getInvoicesReturnedByQsSite = async (req, res) => {
       .populate("vendor")
       .populate("natureOfWork");
 
- 
+
 
     let reportData = [];
 
@@ -985,8 +985,8 @@ export const getInvoicesReturnedByQsSite = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesReturnedFromQsMeasurement.map((invoice) => ({
@@ -1075,8 +1075,8 @@ export const getInvoicesReturnedByQsCOP = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesReturnedFromQsCOP.map((invoice) => ({
@@ -1163,8 +1163,8 @@ export const getInvoicesReturnedByQSMumbai = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     reportData = invoicesReturnedFromQsMumbai.map((invoice) => ({
@@ -1275,8 +1275,8 @@ export const getPendingBillsReport = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     sortedVendorNames.forEach((vendorName) => {
@@ -1401,7 +1401,7 @@ export const getBillJourney = async (req, res) => {
             $gte: parsedStartDate,
             $lte: endOfDay(endDate),
           };
-        } 
+        }
       } catch (dateError) {
         console.error("Date parsing error:", dateError);
         // Continue without date filter if there's an error
@@ -1422,7 +1422,7 @@ export const getBillJourney = async (req, res) => {
 
     // Debug database schema - get first bill to check field names
     const sampleBill = await Bill.findOne({});
-    
+
 
     // Fetch bills from database, sort by sr no
     const bills = await Bill.find(filter).sort({ srNo: 1 }).populate("vendor");
@@ -1461,8 +1461,8 @@ export const getBillJourney = async (req, res) => {
       return isNaN(date.getTime())
         ? null
         : `${String(date.getDate()).padStart(2, "0")}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}-${date.getFullYear()}`;
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${date.getFullYear()}`;
     };
 
     // Calculate date differences in days
@@ -1588,9 +1588,9 @@ export const getBillJourney = async (req, res) => {
           dateRange:
             startDate && endDate
               ? {
-                  from: formatDate(new Date(startDate)),
-                  to: formatDate(new Date(endDate)),
-                }
+                from: formatDate(new Date(startDate)),
+                to: formatDate(new Date(endDate)),
+              }
               : "All dates",
         },
         data: reportData,
