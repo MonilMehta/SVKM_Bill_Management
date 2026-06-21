@@ -35,6 +35,27 @@ export const s3Upload = async (file) => {
   };
 };
 
+/**
+ * Normalize an S3 object key from a raw key or full S3/CloudFront URL.
+ */
+export const extractFileKeyFromUrl = (fileKeyOrUrl) => {
+  if (!fileKeyOrUrl || typeof fileKeyOrUrl !== "string") {
+    return null;
+  }
+
+  const trimmed = fileKeyOrUrl.trim();
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    return trimmed.replace(/^\//, "");
+  }
+
+  try {
+    const pathname = new URL(trimmed).pathname;
+    return decodeURIComponent(pathname.replace(/^\//, ""));
+  } catch {
+    return trimmed;
+  }
+};
+
 export const s3Delete = async (fileKey) => {
   const s3 = new S3({
     region: process.env.S3_REGION,

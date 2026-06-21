@@ -10,7 +10,7 @@ import ComplianceMaster from "../models/compliance-master-model.js";
 import NatureOfWorkMaster from "../models/nature-of-work-master-model.js";
 import CurrencyMaster from "../models/currency-master-model.js";
 import User from "../models/user-model.js";
-import { s3Delete, s3Upload } from "../utils/s3.js";
+import { extractFileKeyFromUrl, s3Delete, s3Upload } from "../utils/s3.js";
 import mongoose from "mongoose";
 
 // Validation function for amount only (vendor validation is now handled via vendor reference)
@@ -43,17 +43,43 @@ const getFinancialYearPrefix = (date) => {
   }
 };
 
-const deleteAttachment = async (req, res, next) => {
+const findBillAttachment = (attachments, fileKeyInput) => {
+  const list = Array.isArray(attachments) ? attachments : [];
+  if (!fileKeyInput) return null;
+
+  const normalizedInput = extractFileKeyFromUrl(fileKeyInput);
+
+  return list.find((attachment) => {
+    const storedKey = attachment?.fileKey || "";
+    const normalizedStoredKey = extractFileKeyFromUrl(storedKey);
+    const storedUrlKey = extractFileKeyFromUrl(attachment?.fileUrl || "");
+
+    return (
+      storedKey === fileKeyInput ||
+      attachment?.fileUrl === fileKeyInput ||
+      (normalizedInput &&
+        (normalizedStoredKey === normalizedInput ||
+          storedUrlKey === normalizedInput))
+    );
+  });
+};
+
+const deleteAttachment = async (req, res) => {
   try {
-    const { fileKey, billId } = req.body;
-    if (!fileKey || !billId) {
-      return res
-        .status(400)
-        .json({ message: "File key and BillId is required" });
+    const billId = req.body.billId || req.body.id || req.body._id;
+    const fileKeyInput =
+      req.body.fileKey || req.body.fileUrl || req.body.key || req.body.url;
+
+    if (!fileKeyInput || !billId) {
+      return res.status(400).json({
+        success: false,
+        message: "fileKey (or fileUrl) and billId are required",
+      });
     }
 
     if (!mongoose.Types.ObjectId.isValid(billId)) {
       return res.status(400).json({
+        success: false,
         message: "Invalid Bill ID format",
       });
     }
@@ -61,41 +87,61 @@ const deleteAttachment = async (req, res, next) => {
     const existingBill = await Bill.findById(billId);
     if (!existingBill) {
       return res.status(404).json({
+        success: false,
         message: "Bill not found",
       });
     }
 
-    const attachmentExists = existingBill.attachments.some(
-      (attachment) => attachment.fileKey === fileKey
-    );
-
-    if (!attachmentExists) {
+    const attachment = findBillAttachment(existingBill.attachments, fileKeyInput);
+    if (!attachment?.fileKey) {
       return res.status(404).json({
+        success: false,
         message: "Attachment not found in this bill",
       });
     }
-
-    const deleteResult = await s3Delete(fileKey);
 
     const updatedBill = await Bill.findByIdAndUpdate(
       billId,
       {
         $pull: {
-          attachments: { fileKey: fileKey },
+          attachments: { fileKey: attachment.fileKey },
         },
       },
       { new: true }
-    );
-    return res.status(201).json({
+    )
+      .populate("vendor")
+      .populate("currency")
+      .populate("natureOfWork");
+
+    if (!updatedBill) {
+      return res.status(404).json({
+        success: false,
+        message: "Bill not found",
+      });
+    }
+
+    let s3Warning = null;
+    try {
+      await s3Delete(attachment.fileKey);
+    } catch (s3Error) {
+      console.error("S3 delete failed after DB update:", s3Error);
+      s3Warning =
+        "Attachment removed from bill, but the file could not be deleted from storage.";
+    }
+
+    return res.status(200).json({
       success: true,
-      message: "attachement deleted successfully",
+      message: "Attachment deleted successfully",
+      ...(s3Warning ? { warning: s3Warning } : {}),
+      bill: updatedBill,
       updatedBill,
     });
   } catch (error) {
     console.error("Error while deleting the attachment", error);
-    return res.status(400).json({
-      status: false,
-      message: "failed to delete the attachment",
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete the attachment",
+      error: error.message,
     });
   }
 };

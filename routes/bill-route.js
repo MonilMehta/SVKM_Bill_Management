@@ -63,7 +63,9 @@ router.patch(
   billController.editPaymentInstructions
 );
 
-//Delete the attachment for a particular bill
+// Delete attachment for a particular bill
+router.post("/attachment/delete", billController.deleteAttachment);
+router.delete("/attachment", billController.deleteAttachment);
 router.post("/attachment", billController.deleteAttachment);
 
 // todo: milan bhai abhi add kiya
