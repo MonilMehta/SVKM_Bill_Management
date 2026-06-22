@@ -239,16 +239,17 @@ function readVendorWorkbook(workbook) {
   let headerRowIdx = 1;
   let headers = [];
 
-  worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
-    headers.push(cell.value?.toString().trim());
+  worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    headers[colNumber - 1] = cell.value?.toString().trim() || undefined;
   });
 
-  if (headers[0]?.toLowerCase().includes('report generated') || headers.length < 3 ||
-    (headers[0] === 'S.No' || headers[0] === 'Sr No' || headers[0] === 'Sl.No')) {
+  const firstHeader = headers.find(h => h);
+  if (firstHeader?.toLowerCase().includes('report generated') || headers.filter(Boolean).length < 3 ||
+    (firstHeader === 'S.No' || firstHeader === 'Sr No' || firstHeader === 'Sl.No')) {
     headerRowIdx = 2;
     headers = [];
-    worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
-      headers.push(cell.value?.toString().trim());
+    worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      headers[colNumber - 1] = cell.value?.toString().trim() || undefined;
     });
   }
   return { worksheet, headers, headerRowIdx };
@@ -512,7 +513,7 @@ export async function insertVendorsFromExcel(filePath) {
 
   for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
-    if (!row.getCell(1).value) continue;
+    if (!row.hasValues) continue;
 
     const rowData = extractVendorRowData(row, headers);
 
@@ -574,18 +575,19 @@ export async function updateVendorComplianceFromExcel(filePath) {
   let headers = [];
 
   // Try to find the headers row - first check if row 1 has headers
-  worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
-    headers.push(cell.value?.toString().trim());
+  worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    headers[colNumber - 1] = cell.value?.toString().trim() || undefined;
   });
 
+  const firstHeader = headers.find(h => h);
   // If the first cell is a report header or if the first row has fewer than 3 cells,
   // assume the headers are in row 2 (which is common in exported reports)
-  if (headers[0]?.toLowerCase().includes('report generated') || headers.length < 3 ||
-    (headers[0] === 'S.No' || headers[0] === 'Sr No' || headers[0] === 'Sl.No')) {
+  if (firstHeader?.toLowerCase().includes('report generated') || headers.filter(Boolean).length < 3 ||
+    (firstHeader === 'S.No' || firstHeader === 'Sr No' || firstHeader === 'Sl.No')) {
     headerRowIdx = 2;
     headers = [];
-    worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: false }, cell => {
-      headers.push(cell.value?.toString().trim());
+    worksheet.getRow(headerRowIdx).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      headers[colNumber - 1] = cell.value?.toString().trim() || undefined;
     });
   }
 
@@ -603,7 +605,7 @@ export async function updateVendorComplianceFromExcel(filePath) {
 
   for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
-    if (!row.getCell(1).value) continue;
+    if (!row.hasValues) continue;
 
     const rowData = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {

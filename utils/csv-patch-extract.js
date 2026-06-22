@@ -37,7 +37,7 @@ export async function extractPatchRowsFromExcel(filePath) {
 
   for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
-    if (!row.getCell(1).value) continue;
+    if (!row.hasValues) continue;
     const rowData = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const header = headers[colNumber - 1];
@@ -608,7 +608,7 @@ export async function patchBillsFromExcelFile(filePath, teamName = null) {
 
   for (let rowNumber = headerRowIdx + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
-    if (!row.getCell(1).value) continue; // Skip completely empty leading cells
+    if (!row.hasValues) continue; // Skip completely empty rows
 
     const rowData = extractPatchRowData(row, headers);
 
