@@ -324,8 +324,21 @@ const createBill = async (req, res) => {
       }
     }
 
+    let createdByName = req.user?.name || "Unknown User";
+    if (req.user && (req.user.userId || req.user.id || req.user._id)) {
+      const userId = req.user.userId || req.user.id || req.user._id;
+      const userDoc = await User.findById(userId);
+      if (userDoc && userDoc.name) {
+        createdByName = userDoc.name;
+      }
+    }
+    console.log("=== DEBUG CREATE BILL ===");
+    console.log("REQ.USER:", req.user);
+    console.log("RESOLVED NAME:", createdByName);
+
     const newBillData = {
       ...billData,
+      createdBy: createdByName,
       workflowState: {
         currentState: "Site_Officer",
         history: [],

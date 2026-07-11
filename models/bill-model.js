@@ -12,6 +12,7 @@ const billSchema = new mongoose.Schema(
       unique: true,
     },
     srNoOld: { type: Number, auto: true },
+    createdBy: { type: String, default: null },
     // typeOfInv: {
     //     type: String,
     //     required: true,
