@@ -465,7 +465,6 @@ export const changeBatchWorkflowState = async (req, res) => {
                   currentCount: 5,
                   maxCount: Math.max(billFound.maxCount, 5),
                   "accountsDept.dateGiven": now,
-                  "accountsDept.givenBy": fromName,
                 },
               },
               {
