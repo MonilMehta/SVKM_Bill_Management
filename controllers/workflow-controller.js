@@ -348,16 +348,16 @@ export const changeBatchWorkflowState = async (req, res) => {
             toRoleArray.includes("accounts_department"))
         ) {
           if (toRoleArray.includes("qs_mumbai")) {
+            // Keep currentCount at 3 so bill stays on PIMO home tab
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
                 $set: {
-                  currentCount: 2,
-                  maxCount: Math.max(billFound.maxCount, 2),
+                  currentCount: 3,
+                  maxCount: Math.max(billFound.maxCount, 3),
                   "qsMumbai.dateGiven": now,
                   "qsMumbai.name": toName,
                 },
-                //   remove $ push
                 $push: {
                   "workflowState.history": {
                     state: "QS_Mumbai",
@@ -443,12 +443,13 @@ export const changeBatchWorkflowState = async (req, res) => {
               }
             );
           } else if (toRoleArray.includes("trustee")) {
+            // Keep currentCount at 3 so bill stays on PIMO home tab
             billWorkflow = await Bill.findByIdAndUpdate(
               billId,
               {
                 $set: {
-                  currentCount: 4,
-                  maxCount: Math.max(billFound.maxCount, 4),
+                  currentCount: 3,
+                  maxCount: Math.max(billFound.maxCount, 3),
                   "approvalDetails.directorApproval.dateGiven": now,
                 },
               },

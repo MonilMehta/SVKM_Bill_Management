@@ -289,11 +289,22 @@ const createBill = async (req, res) => {
       billData[field] = req.body[field] !== undefined ? req.body[field] : null;
     }
 
+    // Resolve the natureOfWork name for the uniqueness check
+    // The frontend sends `natureOfWork` (not `typeOfInv`), so we need to check both.
+    // If typeOfInv is not provided, look up the natureOfWork name from the DB.
+    let resolvedNatureOfWork = typeofinv || null;
+    if (!resolvedNatureOfWork && billData.natureOfWork) {
+      const nowDoc = await NatureOfWorkMaster.findById(billData.natureOfWork);
+      if (nowDoc) {
+        resolvedNatureOfWork = nowDoc.natureOfWork;
+      }
+    }
+
     // Uniqueness check for vendor, taxInvNo, taxInvDate, region only for specific type of invoice
     if (
-      typeofinv != "Advance/LC/BG" &&
-      typeofinv != "Direct FI Entry" &&
-      typeofinv != "Proforma Invoice"
+      resolvedNatureOfWork != "Advance/LC/BG" &&
+      resolvedNatureOfWork != "Direct FI Entry" &&
+      resolvedNatureOfWork != "Proforma Invoice"
     ) {
 
       const uniqueQuery = {
@@ -924,12 +935,19 @@ const patchBill = async (req, res) => {
     existingBill.setImportMode(true);
 
     // Only check uniqueness for certain types of invoices
-    const typeOfInv = req.body.typeOfInv !== undefined ? req.body.typeOfInv : existingBill.typeOfInv;
+    // Resolve the nature of work name: check typeOfInv first, then look up from the bill's natureOfWork reference
+    let resolvedNatureOfWork = req.body.typeOfInv !== undefined ? req.body.typeOfInv : existingBill.typeOfInv;
+    if (!resolvedNatureOfWork && existingBill.natureOfWork) {
+      const nowDoc = await NatureOfWorkMaster.findById(existingBill.natureOfWork);
+      if (nowDoc) {
+        resolvedNatureOfWork = nowDoc.natureOfWork;
+      }
+    }
     let uniqueQuery = {};
     if (
-      typeOfInv != "Advance/LC/BG" &&
-      typeOfInv != "Direct FI Entry" &&
-      typeOfInv != "Proforma Invoice"
+      resolvedNatureOfWork != "Advance/LC/BG" &&
+      resolvedNatureOfWork != "Direct FI Entry" &&
+      resolvedNatureOfWork != "Proforma Invoice"
     ) {
       // Uniqueness check for vendor, taxInvNo, taxInvDate, region (ignore self)
       uniqueQuery = {
@@ -1701,7 +1719,8 @@ const getFilteredBills = async (req, res) => {
       case "director":
         filter = {
           ...filter,
-          currentCount: 4,
+          "approvalDetails.directorApproval.dateGiven": { $ne: null },
+          "pimoMumbai.dateReturnedFromDirector": null,
           siteStatus: { $in: ["accept", "hold"] },
           "accountsDept.paymentDate": null
         };
