@@ -718,6 +718,7 @@ export const getInvoicesPaid = async (req, res) => {
       taxInvAmt: invoice.taxInvAmt ?? 0,
       copAmount: invoice.copDetails?.amount || "",
       payentAmt: invoice.accountsDept?.paymentAmt || "",
+      f110Identification: invoice.accountsDept?.f110Identification || "",
     }));
 
     const totalTaxInvAmt = reportData.reduce(
