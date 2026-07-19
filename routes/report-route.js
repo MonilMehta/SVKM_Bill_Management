@@ -122,7 +122,7 @@ router.get(
 // 14. Bill Kidhar Report
 router.get(
   "/bill-kidhar",
-  authorize([...PIMO_ROLES, "accounts"]),
+  authorize(["pimo_mumbai", "director", "admin"]),
   getBillKidharReport
 );
 

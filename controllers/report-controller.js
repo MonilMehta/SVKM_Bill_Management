@@ -10,6 +10,7 @@ import {
   applyRegionFilter,
   applyVendorFilter,
   applyPaymentStatusFilter,
+  applyTaxInvNoFilter,
   applySrNoFilter,
   applyKidharJourneyDateRange,
   normalizeQueryValue,
@@ -771,6 +772,7 @@ export const getBillKidharReport = async (req, res) => {
     const region = normalizeQueryValue(req.query.region);
     const vendorName = normalizeQueryValue(req.query.vendorName);
     const paymentStatus = normalizeQueryValue(req.query.paymentStatus);
+    const taxInvNo = normalizeQueryValue(req.query.taxInvNo);
 
     const filter = {
       ...dateFilled(FIELDS.taxInvRecdAtSite),
@@ -779,6 +781,7 @@ export const getBillKidharReport = async (req, res) => {
     applyRegionFilter(filter, region);
     applyPaymentStatusFilter(filter, paymentStatus);
     await applyVendorFilter(filter, vendorName);
+    applyTaxInvNoFilter(filter, taxInvNo);
 
     const bills = await Bill.find(filter).populate("vendor");
     const sorted = sortUnpaidFirstThenAmountDesc(bills);
@@ -828,6 +831,7 @@ export const getBillJourney = async (req, res) => {
   try {
     const region = normalizeQueryValue(req.query.region);
     const vendorName = normalizeQueryValue(req.query.vendorName);
+    const taxInvNo = normalizeQueryValue(req.query.taxInvNo);
     const srNo = normalizeQueryValue(req.query.srNo);
     const startDate = normalizeQueryValue(req.query.startDate);
     const endDate = normalizeQueryValue(req.query.endDate);
@@ -839,8 +843,9 @@ export const getBillJourney = async (req, res) => {
     applyRegionFilter(filter, region);
     applySrNoFilter(filter, srNo);
     await applyVendorFilter(filter, vendorName);
+    applyTaxInvNoFilter(filter, taxInvNo);
 
-    const bills = await Bill.find(filter).populate("vendor");
+    const bills = await Bill.find(filter).populate("vendor").populate("natureOfWork").populate("currency");
     const sorted = sortUnpaidFirstThenAmountDesc(bills);
 
     let totalInvoiceAmount = 0;
@@ -900,10 +905,49 @@ export const getBillJourney = async (req, res) => {
         region: bill.region || "",
         projectDescription: bill.projectDescription || "",
         vendorName: bill.vendor?.vendorName || "",
+        vendorNo: bill.vendor?.vendorNo || "",
         invoiceDate: fmt(bill.taxInvDate),
         invoiceAmount: !isNaN(invoiceAmount)
           ? Number(invoiceAmount.toFixed(2))
           : 0,
+        taxInvNo: bill.taxInvNo || "",
+        taxInvDate: bill.taxInvDate,
+        taxInvAmt: bill.taxInvAmt || "",
+        taxInvRecdAtSite: bill.taxInvRecdAtSite,
+        currency: bill.currency?.currency || bill.currency || "",
+        natureOfWork: bill.natureOfWork?.natureOfWork || bill.natureOfWork || "",
+        typeOfInv: bill.typeOfInv || "",
+        proformaInvNo: bill.proformaInvNo || "",
+        proformaInvDate: bill.proformaInvDate,
+        proformaInvAmt: bill.proformaInvAmt || "",
+        poNo: bill.poNo || "",
+        poDate: bill.poDate,
+        poAmt: bill.poAmt || "",
+        department: bill.department || "",
+        billReceivedAtSite: fmt(bill.taxInvRecdAtSite),
+        receiptByProjectTeam: "",
+        receivedForPO: fmt(bill.poDate),
+        receiptOfPO: "",
+        billSendForQualityCertification: fmt(bill.qualityEngineer?.dateGiven),
+        billSendToQS: fmt(bill.qsMeasurementCheck?.dateGiven),
+        certifiedByQS: fmt(bill.qsCOP?.dateGiven),
+        certifiedByArch: fmt(bill.architect?.dateGiven),
+        billSendToSiteEngineer: fmt(bill.siteIncharge?.dateGiven),
+        receiptBySiteProjectDirector: "",
+        receiptAtMPTP: "",
+        certifiedByLPC: "",
+        migoDateNo: bill.migoDetails?.date ? `${fmt(bill.migoDetails.date)} / ${bill.migoDetails.no || ''}` : "",
+        billSendToPIMOMumbai: fmt(bill.pimoMumbai?.dateGiven),
+        billReceivedAtPIMOMumbai: fmt(bill.pimoMumbai?.dateReceived),
+        billSendToQSCertification: fmt(bill.qsMumbai?.dateGiven),
+        receivedFromQSWithCOP: fmt(bill.pimoMumbai?.dateReturnedFromQs),
+        givenToITDept: fmt(bill.itDept?.dateGiven),
+        receivedBackFromITDept: fmt(bill.itDept?.dateReceived),
+        sesDateNo: bill.sesDetails?.date ? `${fmt(bill.sesDetails.date)} / ${bill.sesDetails.no || ''}` : "",
+        certifiedByProjectDirector: fmt(bill.approvalDetails?.directorApproval?.dateGiven),
+        certifiedByProjectAdvisor: "",
+        certifiedByMCMembers: "",
+        submittedToAccountsDepartment: fmt(bill.accountsDept?.dateGiven),
         delay_for_receiving_invoice,
         no_of_Days_Site,
         no_of_Days_at_Mumbai,

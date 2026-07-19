@@ -15,6 +15,8 @@ export const FIELDS = {
   paymentDate: "accountsDept.paymentDate",
   siteStatus: "siteStatus",
   taxInvDate: "taxInvDate",
+  taxInvNo: "taxInvNo",
+  vendorName: "vendorName"
 };
 
 export const endOfDay = (dateString) => {
@@ -77,11 +79,11 @@ export const applyRegionFilter = (filter, region) => {
 export const applyVendorFilter = async (filter, vendorName) => {
   const value = normalizeQueryValue(vendorName);
   if (!value) return;
-  const vendor = await VendorMaster.findOne({
-    vendorName: { $regex: String(value).trim(), $options: "i" },
+  const vendor = await VendorMaster.find({
+    vendorName: { $regex: escapeRegex(String(value).trim()), $options: "i" },
   });
   if (vendor) {
-    filter.vendor = vendor._id;
+    filter.vendor = { $in: vendor.map(v => v._id) };
   }
 };
 
@@ -177,5 +179,16 @@ export const applySrNoFilter = (filter, srNo) => {
   const value = normalizeQueryValue(srNo);
   if (value) {
     filter.srNo = value;
+  }
+};
+
+function escapeRegex(text) {
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+export const applyTaxInvNoFilter = (filter, taxInvNo) => {
+  const value = normalizeQueryValue(taxInvNo);
+  if (value) {
+    filter.taxInvNo = { $regex: escapeRegex(String(value).trim()), $options: "i" };
   }
 };
